@@ -296,3 +296,53 @@ function makePdf(text: string) {
   out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
   return Buffer.from(out, 'latin1');
 }
+
+describe('original files', () => {
+  const upload = async (c: Client, name: string, bytes: Buffer, type = 'application/octet-stream') => {
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(bytes)], { type }), name);
+    const req = new Request('http://x', { method: 'POST', body: form });
+    return c.req('POST', '/api/import', Buffer.from(await req.arrayBuffer()), { 'content-type': req.headers.get('content-type')! });
+  };
+
+  it('keeps the uploaded PDF byte for byte and serves it as a download', async () => {
+    const pdf = makePdf('Factura de la luz de marzo');
+    const out = (await upload(ana, 'factura.pdf', pdf, 'text/html')).json(); // client type is ignored
+    const note = (await ana.get(`/api/notes/${out.notes[0].id}`)).json();
+    expect(note.files).toEqual([expect.objectContaining({ filename: 'factura.pdf', mime: 'application/pdf', size: pdf.length })]);
+    const res = await ana.get(`/api/notes/${note.id}/files/${note.files[0].id}`);
+    expect(res.statusCode).toBe(200);
+    expect(res.rawPayload.equals(pdf)).toBe(true);
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(res.headers['content-disposition']).toMatch(/^attachment; filename="factura.pdf"/);
+    expect(res.headers['content-security-policy']).toContain('sandbox');
+    const [{ sha256 }] = await ctx.db.query('SELECT sha256 FROM note_files WHERE id = $1', [note.files[0].id]);
+    expect(sha256).toBe((await import('node:crypto')).createHash('sha256').update(pdf).digest('hex'));
+  });
+
+  it('strips paths and control characters from client filenames, keeping accents', async () => {
+    const out = (await upload(ana, '..\..\secreto/Apuntes de Álgebra\u0007.md', Buffer.from('# Álgebra\n\nmatrices'))).json();
+    const note = (await ana.get(`/api/notes/${out.notes[0].id}`)).json();
+    expect(note.files[0]).toMatchObject({ filename: 'Apuntes de Álgebra.md', mime: 'text/markdown; charset=utf-8' });
+    const res = await ana.get(`/api/notes/${note.id}/files/${note.files[0].id}`);
+    expect(res.headers['content-disposition']).toContain(`filename*=UTF-8''${encodeURIComponent('Apuntes de Álgebra.md')}`);
+    expect(res.body).toBe('# Álgebra\n\nmatrices');
+  });
+
+  it('applies note permissions to the file and does not attach files to JSON imports or manual notes', async () => {
+    const out = (await upload(ana, 'privado.txt', Buffer.from('solo para mí'))).json();
+    const note = (await ana.get(`/api/notes/${out.notes[0].id}`)).json();
+    const url = `/api/notes/${note.id}/files/${note.files[0].id}`;
+    const eve = await Client.register(ctx.app, 'eve-files@example.com');
+    expect((await eve.get(url)).statusCode).toBe(404);
+    const other = (await ana.post('/api/notes', { title: 'Otra' })).json();
+    expect(other.files).toEqual([]);
+    expect((await ana.get(`/api/notes/${other.id}/files/${note.files[0].id}`)).statusCode).toBe(404); // file must belong to that note
+    await ana.put(`/api/notes/${note.id}/shares`, { email: 'eve-files@example.com', role: 'viewer' });
+    expect((await eve.get(url)).body).toBe('solo para mí');
+    await ana.del(`/api/notes/${note.id}`);
+    expect((await eve.get(url)).statusCode).toBe(404); // trashed notes are no longer shared
+    await ana.del(`/api/trash/${note.id}`);
+    expect((await ctx.db.query('SELECT 1 FROM note_files WHERE note_id = $1', [note.id])).length).toBe(0);
+  });
+});

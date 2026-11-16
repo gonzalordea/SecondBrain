@@ -5,11 +5,11 @@
 | Componente | Cómo se verificó | Resultado |
 |---|---|---|
 | Typecheck de todo el código (servidor, web, tests) | `npm run typecheck` | Sin errores |
-| API completa sobre PGlite (Postgres 17 + pgvector en WASM) | `npm test` — 55 tests (unit + integración + seguridad) con el modelo de embeddings real | 55/55 |
-| La misma API sobre el **driver de producción** `node-postgres` | `npm run test:pg` — los mismos 55 tests hablando el protocolo de PostgreSQL por TCP (PGlite socket server), pool de 1 conexión | 55/55 |
+| API completa sobre PGlite (Postgres 17 + pgvector en WASM) | `npm test` — 58 tests (unit + integración + seguridad) con el modelo de embeddings real | 58/58 |
+| La misma API sobre el **driver de producción** `node-postgres` | `npm run test:pg` — los mismos 58 tests hablando el protocolo de PostgreSQL por TCP (PGlite socket server), pool de 1 conexión | 58/58 |
 | Frontend + servidor real en navegador | `npm run test:e2e` — Chromium, escritorio y móvil (Pixel 7) | 5/5 |
 | Revisión visual | Navegador integrado: login, editor, búsqueda, grafo, panorama, papelera, móvil 375 px, tema claro/oscuro, sin violaciones de CSP en consola | Correcto tras los arreglos |
-| Extracción de PDF | Test con un PDF real generado en el test | Correcto |
+| Extracción de PDF y ficheros originales | Tests con un PDF real: texto extraído, descarga idéntica byte a byte (SHA-256), permisos; E2E descargando el original en Chromium | Correcto |
 | Búsqueda semántica | Consultas sin palabras en común con la nota correcta ("¿qué come mi mascota?" → nota del gato) | Correcto |
 
 ## Qué NO se ha podido verificar
@@ -22,10 +22,10 @@
 ## Limitaciones funcionales conocidas
 
 - **Entidades por sintaxis, no por IA.** Personas = `@Nombre` / `@[Nombre Apellido]`; conceptos = `#etiquetas`. No se extraen entidades de texto libre ni de PDFs importados.
-- **PDF escaneados** (imagen sin capa de texto) no se pueden importar: no hay OCR.
+- **PDF escaneados** (imagen sin capa de texto) no se pueden importar: no hay OCR. Los ficheros importados sí se guardan tal cual y se pueden volver a descargar desde la nota.
 - **El asistente no ve las notas compartidas contigo**, solo las tuyas (decisión de privacidad).
 - **Renombrar una nota** no reescribe los `[[Título antiguo]]` de otras notas; esos enlaces se recalculan cuando se edita la nota que los contiene.
-- **Exportación JSON** incluye notas, etiquetas manuales y enlaces manuales; no incluye versiones, conversaciones ni permisos de compartir. La importación JSON crea las notas una a una: si falla a mitad, lo ya importado se queda.
+- **Exportación JSON** incluye notas, etiquetas manuales y enlaces manuales; no incluye versiones, conversaciones, permisos de compartir ni los ficheros originales. La importación JSON crea las notas una a una: si falla a mitad, lo ya importado se queda.
 - **Imágenes externas en Markdown no se muestran** (la CSP solo permite imágenes propias o `data:`), a propósito: evita píxeles de seguimiento en notas compartidas.
 - **Grafo** limitado a las 500 notas más recientes; el layout se calcula en el navegador.
 - **Sin colaboración en tiempo real**: dos editores a la vez reciben un aviso de conflicto (409) y eligen qué versión mantener; no hay fusión automática.
@@ -38,6 +38,7 @@
 - **Búsqueda vectorial exacta por usuario** (`search.ts`, migración 003): correcta siempre y rápida para bibliotecas personales (miles de fragmentos). Por encima de ~100 000 fragmentos por usuario, usar HNSW con `iterative_scan` de pgvector ≥ 0.8 o particionar por usuario.
 - **Vecinos del grafo y "conexiones ocultas"** se calculan en cada petición (O(n·k) sobre ≤ 500 notas). Para más, precalcular en una tabla al indexar.
 - **Rate limiting en memoria** del proceso: con varias réplicas, almacén compartido (Redis).
+- **Ficheros originales en PostgreSQL** (`bytea`, migración 004): un solo volumen que respaldar y mismo comportamiento en PGlite. Si se suben ficheros grandes o muchos, mover a almacenamiento de objetos (S3 o similar).
 - **Diff de versiones** por LCS de líneas, con tope de tamaño (`text.tsx`).
 
 ## Siguientes pasos recomendados

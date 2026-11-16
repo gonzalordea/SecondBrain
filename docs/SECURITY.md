@@ -1,7 +1,7 @@
 # Informe de seguridad
 
 Alcance: la API (`server/`), el frontend (`web/`) y su despliegue (`Dockerfile`, `docker-compose.yml`).
-Cada control lleva la prueba automatizada que lo demuestra (`tests/integration/security.test.ts` = **S**, `tests/integration/core.test.ts` = **C**, `tests/unit/logic.test.ts` = **U**, `tests/e2e/app.spec.ts` = **E**). Todas pasan en la última ejecución (55 unit/integración, también por el driver `pg`, + 5 E2E).
+Cada control lleva la prueba automatizada que lo demuestra (`tests/integration/security.test.ts` = **S**, `tests/integration/core.test.ts` = **C**, `tests/unit/logic.test.ts` = **U**, `tests/e2e/app.spec.ts` = **E**). Todas pasan en la última ejecución (58 unit/integración, también por el driver `pg`, + 5 E2E).
 
 ## Activos y actores
 
@@ -26,6 +26,7 @@ Cada control lleva la prueba automatizada que lo demuestra (`tests/integration/s
 | **Secretos** | Solo por variables de entorno; `.env` en `.gitignore`; `.env.example` sin valores reales; la clave de IA nunca llega al cliente (solo se expone `llm: true/false`). Los logs redactan `cookie`, `x-csrf-token`, `authorization` y `set-cookie`. Docker exige `POSTGRES_PASSWORD` explícita (falla si falta) y el contenedor corre como usuario `node`. | Revisión de código (no automatizado; ver limitaciones) |
 | **Inyección de prompt vía notas** | Los fragmentos van como bloques `document` (datos) y el prompt de sistema ordena ignorar instrucciones dentro de ellos. Las citas que devuelva el modelo solo se aceptan si apuntan a un documento enviado. | U: *drops citations that point outside the retrieved documents*. La resistencia del modelo en sí **no** está probada (no hay clave en este entorno) |
 | **Coste/abuso del LLM** | Límite 20/min por IP; no se llama al modelo si no hay fragmentos relevantes; si el navegador se desconecta se aborta la llamada en curso. | C: *admits it does not know instead of calling the model* |
+| **Ficheros subidos** | Se guardan con un nombre limpio (sin rutas ni caracteres de control) y un tipo deducido de la extensión permitida, nunca del cliente. Se sirven siempre como descarga (`attachment`), con `nosniff`, `CSP: sandbox` y `no-store`, solo a quien puede leer la nota y solo si el fichero pertenece a esa nota. | C: *keeps the uploaded PDF byte for byte…*, *strips paths and control characters…*, *applies note permissions to the file…* |
 | **Clickjacking / MIME sniffing** | `frame-ancestors 'none'`, `X-Frame-Options`, `X-Content-Type-Options: nosniff` (helmet). | S: cabeceras comprobadas |
 
 ## Hallazgos de la auditoría propia (ya corregidos)

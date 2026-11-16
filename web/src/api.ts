@@ -87,6 +87,7 @@ export interface Note {
   embeddingStatus: 'pending' | 'ready' | 'failed'; createdAt: string; updatedAt: string; deletedAt: string | null;
   access: 'owner' | 'editor' | 'viewer'; owner: { displayName: string }; tags: string[]; textTags: string[]; people: string[];
   linksOut: { id: string; title: string }[]; linksIn: { id: string; title: string }[];
+  files: { id: string; filename: string; mime: string; size: number; createdAt: string }[];
 }
 export interface Source { n: number; noteId: string; title: string; quotes: string[] }
 export interface ChatMessage { id: string; role: 'user' | 'assistant'; content: string; sources: Source[]; grounded: boolean; createdAt: string }

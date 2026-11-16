@@ -24,6 +24,20 @@ export const exportFile = z.object({
 
 const ALLOWED = /\.(json|md|markdown|txt|pdf)$/i;
 
+// The type comes from the (already allow-listed) extension, never from the client's Content-Type.
+export const mimeFor = (name: string) =>
+  /\.pdf$/i.test(name) ? 'application/pdf' : /\.(md|markdown)$/i.test(name) ? 'text/markdown; charset=utf-8' : 'text/plain; charset=utf-8';
+
+/** Client filenames can carry paths or control characters; keep only a clean base name. */
+export const safeFilename = (name: string) =>
+  (name.split(/[\\/]/).pop() ?? '').replace(/[\x00-\x1f\x7f"]/g, '').trim().slice(-200) || 'fichero';
+
+/** RFC 6266 header with an ASCII fallback and the exact UTF-8 name. */
+export const attachment = (name: string) => {
+  const ascii = name.normalize('NFKD').replace(/[^\w .-]/g, '').trim() || 'fichero';
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+};
+
 export async function ioRoutes(app: FastifyInstance, { db, indexer }: { db: Db; indexer: Indexer }) {
   app.get('/api/export', async (req, reply) => {
     const user = requireUser(req);
@@ -54,10 +68,26 @@ export async function ioRoutes(app: FastifyInstance, { db, indexer }: { db: Db; 
     const yaml = (s: string) => JSON.stringify(s); // JSON strings are valid YAML scalars and escape safely
     const front = [`title: ${yaml(n.title)}`, `type: ${n.type}`, n.category && `category: ${yaml(n.category)}`,
       tags.length && `tags: [${tags.map(yaml).join(', ')}]`, `updated: ${new Date(n.updated_at).toISOString()}`].filter(Boolean).join('\n');
-    const ascii = n.title.normalize('NFKD').replace(/[^\w .-]/g, '').trim().slice(0, 80) || 'nota';
     reply.header('content-type', 'text/markdown; charset=utf-8');
-    reply.header('content-disposition', `attachment; filename="${ascii}.md"; filename*=UTF-8''${encodeURIComponent(n.title.slice(0, 80))}.md`);
+    reply.header('content-disposition', attachment(`${n.title.slice(0, 80)}.md`));
     return `---\n${front}\n---\n\n${n.content}\n`;
+  });
+
+  // Download the original file behind an imported document. Same access rule as reading the note.
+  app.get('/api/notes/:id/files/:fileId', async (req, reply) => {
+    const user = requireUser(req);
+    const { id, fileId } = parse(z.object({ id: z.uuid(), fileId: z.uuid() }), req.params);
+    await loadNote(db, id, user.id);
+    const [f] = await db.query('SELECT filename, mime, data FROM note_files WHERE id = $1 AND note_id = $2', [fileId, id]);
+    if (!f) throw new HttpError(404, 'not_found', 'Fichero no encontrado');
+    const data = Buffer.from(f.data); // pg gives a Buffer, PGlite a Uint8Array
+    reply.header('content-type', f.mime);
+    reply.header('content-length', data.length);
+    reply.header('content-disposition', attachment(f.filename));
+    // Uploaded bytes are untrusted: never let a browser treat them as a page of this origin.
+    reply.header('content-security-policy', "sandbox; default-src 'none'");
+    reply.header('cache-control', 'private, no-store');
+    return reply.send(data);
   });
 
   app.post('/api/import', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (req) => {
@@ -96,7 +126,8 @@ export async function ioRoutes(app: FastifyInstance, { db, indexer }: { db: Db; 
           const { title, content } = await extractFileText(name, buf);
           if (!content.trim()) throw new Error('No se pudo extraer texto (¿PDF escaneado sin OCR?)');
           if (content.length > MAX_CONTENT) throw new Error(`El texto supera ${MAX_CONTENT} caracteres`);
-          const note = await createNote(db, user.id, { type: 'document', title, content }, 'upload');
+          const note = await createNote(db, user.id, { type: 'document', title, content }, 'upload',
+            { filename: safeFilename(name), mime: mimeFor(name), data: buf });
           created.push({ id: note.id, title: note.title, type: note.type });
           indexer.enqueue(note.id);
         }

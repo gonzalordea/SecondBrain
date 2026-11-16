@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { api, ApiError, type Note, type NoteSummary, type NoteType, type TaskStatus } from '../api.ts';
 import { useSession } from '../session.ts';
-import { fmtDate, lineDiff, renderMarkdown, timeAgo } from '../text.tsx';
+import { fmtBytes, fmtDate, lineDiff, renderMarkdown, timeAgo } from '../text.tsx';
 import {
   confirmAction, Dialog, Empty, errMsg, ErrorState, Icon, navigate, Skeleton, Spinner, STATUS_LABEL, TYPE_LABEL, useAsync, useToast,
 } from '../ui.tsx';
@@ -410,6 +410,24 @@ function Aside({ note, onSummary }: { note: Note; onSummary: (s: string, m: 'llm
 
   return (
     <aside className="editor-aside" aria-label="Contexto de la nota">
+      {note.files.length > 0 && (
+        <section className="card">
+          <h2>Fichero original</h2>
+          <ul className="file-list">
+            {note.files.map((f) => (
+              <li key={f.id}>
+                <span className="file-icon" aria-hidden="true">{f.mime === 'application/pdf' ? 'PDF' : f.mime.startsWith('text/markdown') ? 'MD' : 'TXT'}</span>
+                <span className="grow">
+                  <span className="file-name" title={f.filename}>{f.filename}</span>
+                  <small className="muted">{fmtBytes(f.size)} · {fmtDate(f.createdAt)}</small>
+                </span>
+                <a className="icon-btn" href={`/api/notes/${note.id}/files/${f.id}`} download={f.filename}
+                  aria-label={`Descargar ${f.filename}`} title="Descargar"><Icon name="download" /></a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <section className="card">
         <header className="card-head">
           <h2>Resumen</h2>

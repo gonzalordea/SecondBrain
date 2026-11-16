@@ -107,6 +107,13 @@ test('import a markdown file and open it as a document', async ({ page }) => {
   await page.getByRole('link', { name: 'Apuntes de Rust' }).click();
   await expect(page.getByLabel('Título')).toHaveValue('Apuntes de Rust');
   await expect(page.locator('.meta-field select').first()).toHaveValue('document');
+  // The original file is kept and downloads unchanged.
+  const download = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Descargar apuntes.md' }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe('apuntes.md');
+  const { readFile } = await import('node:fs/promises');
+  expect(await readFile((await file.path())!, 'utf8')).toBe('# Apuntes de Rust\n\nEl borrow checker evita carreras de datos. #rust');
 });
 
 test('assistant explains it is not configured; logout ends the session', async ({ page }) => {

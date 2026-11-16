@@ -549,3 +549,12 @@ ins { background: var(--ok-soft); text-decoration: none; } del { background: var
 .trash-list, .results, .connections, .bento, .settings-grid, .search-grid > *, .hbars { min-width: 0; }
 .trash-list, .results, .connections { grid-template-columns: minmax(0, 1fr); }
 .center-x { display: flex; justify-content: center; }
+
+/* ---------- Original files ---------- */
+.file-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.file-list li { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.file-list .grow { display: grid; }
+.file-name { font-size: .88rem; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-list small { font-size: .74rem; }
+.file-icon { flex: none; width: 34px; height: 40px; border-radius: 6px 12px 6px 6px; display: grid; place-items: end center; padding-bottom: 5px;
+  font: 700 .62rem var(--sans); letter-spacing: .04em; color: var(--accent-ink); background: var(--k-concept); }

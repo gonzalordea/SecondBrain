@@ -65,6 +65,7 @@ Ver `server/migrations/001_init.sql` (fuente de verdad). Resumen:
 - `entities(id, owner_id, kind person|concept, name)` + `note_entities`
 - `note_links(source_id, target_id, kind manual|wikilink)`
 - `chunks(id, note_id, owner_id, idx, content, embedding vector(384))` — búsqueda exacta por usuario (el índice HNSW inicial se retiró en la migración 003: ver SECURITY.md, hallazgo 2)
+- `note_files(note_id, owner_id, filename, mime, size, sha256, data bytea)` — fichero original de los documentos importados (migración 004)
 - `note_shares(note_id, user_id, role viewer|editor)`
 - `conversations(id, owner_id, title)` + `messages(id, conversation_id, role, content, citations jsonb)`
 

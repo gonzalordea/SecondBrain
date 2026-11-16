@@ -46,6 +46,8 @@ export function timeAgo(iso: string) {
 
 export const fmtDate = (iso: string) => new Date(iso).toLocaleString('es', { dateStyle: 'medium', timeStyle: 'short' });
 export const fmtNum = (n: number) => n.toLocaleString('es');
+export const fmtBytes = (b: number) =>
+  b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(1).replace('.', ',')} KB` : `${(b / 1048576).toFixed(1).replace('.', ',')} MB`;
 
 /** Line diff (LCS). Returns rows tagged as same/add/del. */
 export function lineDiff(a: string, b: string): { kind: 'same' | 'add' | 'del'; text: string }[] {

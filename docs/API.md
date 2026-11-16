@@ -32,7 +32,7 @@ Errores: `{ "error": { "code": string, "message": string, "issues"?: [{ "path", 
 
 ## Notas
 
-`Note = { id, type: 'note'|'document'|'task', title, content, summary, summaryMethod, category, status, dueDate, version, source, embeddingStatus, createdAt, updatedAt, deletedAt, access: 'owner'|'editor'|'viewer', owner: { displayName }, tags[], textTags[], people[], linksOut[{id,title}], linksIn[{id,title}] }`
+`Note = { id, type: 'note'|'document'|'task', title, content, summary, summaryMethod, category, status, dueDate, version, source, embeddingStatus, createdAt, updatedAt, deletedAt, access: 'owner'|'editor'|'viewer', owner: { displayName }, tags[], textTags[], people[], linksOut[{id,title}], linksIn[{id,title}], files[{id, filename, mime, size, createdAt}] }`
 
 `textTags` son las etiquetas que vienen de `#hashtags` del texto (no se quitan desde la lista de etiquetas). `linksOut/linksIn` van vacíos para quien no es propietario.
 
@@ -54,6 +54,7 @@ Errores: `{ "error": { "code": string, "message": string, "issues"?: [{ "path", 
 | DELETE | `/notes/:id/shares/:userId` | — | Propietario, o el propio destinatario |
 | POST | `/notes/:id/summarize` | — | `{ summary, method: 'llm'|'extractive' }` |
 | GET | `/notes/:id/export.md` | — | `text/markdown` con *front matter* |
+| GET | `/notes/:id/files/:fileId` | — | Descarga el fichero original de un documento importado (mismo permiso que leer la nota; `attachment`, CSP `sandbox`) |
 | GET | `/facets` | — | `{ tags, categories, people }` con recuentos |
 
 ## Papelera
@@ -101,7 +102,7 @@ Sin `ANTHROPIC_API_KEY`: 503 `llm_unavailable` antes de abrir el stream.
 | Método | Ruta | |
 |---|---|---|
 | GET | `/export` | JSON `{ format: 'secondbrain-export', version: 1, notes, links }` (adjunto) |
-| POST | `/import` | `multipart/form-data`, campo(s) `file`: `.json` (exportación), `.md`, `.txt`, `.pdf`. → `{ imported, notes, errors: [{ file, message }] }` |
+| POST | `/import` | `multipart/form-data`, campo(s) `file`: `.json` (exportación), `.md`, `.txt`, `.pdf`. Los `.md/.txt/.pdf` se guardan además como fichero original de la nota (el tipo MIME se deduce de la extensión, no del cliente). → `{ imported, notes, errors: [{ file, message }] }` |
 
 ## Administración (rol admin)
 

@@ -59,13 +59,13 @@ La imagen descarga el modelo de embeddings durante el *build*, así que el conte
 npm test
 ```
 
-Unitarios + integración (55): API real con Fastify `inject`, PostgreSQL real en memoria (PGlite) y el modelo de embeddings real. Incluye la batería de seguridad (`tests/integration/security.test.ts`).
+Unitarios + integración (58): API real con Fastify `inject`, PostgreSQL real en memoria (PGlite) y el modelo de embeddings real. Incluye la batería de seguridad (`tests/integration/security.test.ts`).
 
 ```bash
 npm run test:pg
 ```
 
-Los mismos 55 tests, pero a través del driver de producción (`node-postgres`) hablando el protocolo de PostgreSQL por TCP.
+Los mismos 58 tests, pero a través del driver de producción (`node-postgres`) hablando el protocolo de PostgreSQL por TCP.
 
 ```bash
 npx playwright install chromium

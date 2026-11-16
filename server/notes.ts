@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { Db } from './db.ts';
@@ -48,7 +49,7 @@ export async function loadNote(db: Db, noteId: string, userId: string, opts: { w
 }
 
 export async function noteDto(db: Db, n: Record<string, any>) {
-  const [tags, people, out, inc, owner] = await Promise.all([
+  const [tags, people, out, inc, owner, files] = await Promise.all([
     db.query('SELECT t.name, nt.source FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_id = $1 ORDER BY lower(t.name)', [n.id]),
     db.query('SELECT e.name FROM note_entities ne JOIN entities e ON e.id = ne.entity_id WHERE ne.note_id = $1 ORDER BY lower(e.name)', [n.id]),
     db.query(`SELECT DISTINCT n2.id, n2.title FROM note_links l JOIN notes n2 ON n2.id = l.target_id
@@ -56,6 +57,7 @@ export async function noteDto(db: Db, n: Record<string, any>) {
     db.query(`SELECT DISTINCT n2.id, n2.title FROM note_links l JOIN notes n2 ON n2.id = l.source_id
                WHERE l.target_id = $1 AND n2.deleted_at IS NULL AND n2.owner_id = $2`, [n.id, n.owner_id]),
     db.query('SELECT display_name FROM users WHERE id = $1', [n.owner_id]),
+    db.query('SELECT id, filename, mime, size, created_at FROM note_files WHERE note_id = $1 ORDER BY created_at', [n.id]),
   ]);
   return {
     id: n.id, type: n.type, title: n.title, content: n.content,
@@ -66,6 +68,7 @@ export async function noteDto(db: Db, n: Record<string, any>) {
     tags: tags.map((t) => t.name), textTags: tags.filter((t) => t.source === 'text').map((t) => t.name), people: people.map((p) => p.name),
     // Links point at the owner's other notes; a share recipient must not learn their titles.
     linksOut: n.access && n.access !== 'owner' ? [] : out, linksIn: n.access && n.access !== 'owner' ? [] : inc,
+    files: files.map((f) => ({ id: f.id, filename: f.filename, mime: f.mime, size: f.size, createdAt: f.created_at })),
   };
 }
 
@@ -370,6 +373,7 @@ export async function createNote(
   db: Db, ownerId: string,
   body: { type: string; title: string; content: string; category?: string | null; status?: string | null; dueDate?: string | null; tags?: string[] },
   source: 'manual' | 'import' | 'upload' = 'manual',
+  file?: { filename: string; mime: string; data: Buffer },
 ) {
   return db.tx(async (t) => {
     const [row] = await t.query(
@@ -378,6 +382,12 @@ export async function createNote(
       [ownerId, body.type, body.title, body.content, body.category || null,
         body.type === 'task' ? body.status ?? 'todo' : body.status ?? null, body.dueDate ?? null, source]);
     await recordVersion(t, row, ownerId, source === 'manual' ? 'create' : 'import');
+    if (file) {
+      // Same transaction as the note: a document never exists without its original, or vice versa.
+      await t.query(
+        `INSERT INTO note_files (note_id, owner_id, filename, mime, size, sha256, data) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [row.id, ownerId, file.filename, file.mime, file.data.length, createHash('sha256').update(file.data).digest('hex'), file.data]);
+    }
     await syncDerived(t, row as any, body.tags ?? []);
     return { ...row, access: 'owner' } as Record<string, any> & { access: 'owner' };
   });
