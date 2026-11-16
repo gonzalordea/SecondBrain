@@ -32,7 +32,7 @@ npm run build
 npm start
 ```
 
-Abre http://localhost:3000 y crea una cuenta. Para desarrollo del frontend con recarga en caliente: `npm start` en una terminal y `npm run dev:web` en otra (http://localhost:5173, con proxy a la API).
+Abre http://localhost:3000 y crea una cuenta. Para activar el asistente en local, crea un fichero `.env` en la raíz con una línea `ANTHROPIC_API_KEY=...`: `npm start` lo lee automáticamente (y `.env` nunca entra en git). Para desarrollo del frontend con recarga en caliente: `npm start` en una terminal y `npm run dev:web` en otra (http://localhost:5173, con proxy a la API).
 
 Para hacer administrador a un usuario:
 

@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "scripts": {
     "test": "vitest run",
-    "dev": "node --watch server/index.ts",
-    "start": "node server/index.ts",
+    "dev": "node --env-file-if-exists=.env --watch server/index.ts",
+    "start": "node --env-file-if-exists=.env server/index.ts",
     "build": "vite build",
     "dev:web": "vite",
     "typecheck": "tsc -p .",
     "test:e2e": "playwright test",
-    "make-admin": "node scripts/make-admin.ts",
+    "make-admin": "node --env-file-if-exists=.env scripts/make-admin.ts",
     "fetch-model": "node scripts/fetch-model.ts",
     "test:pg": "node -e \"process.env.TEST_DB='pg';require('child_process').execSync('npx vitest run',{stdio:'inherit',env:process.env})\""
   },
