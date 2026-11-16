@@ -29,7 +29,7 @@ export async function makeApp(env: Record<string, string> = {}, deps: { llm?: Ll
   const config = loadConfig({
     ...(sock && { DATABASE_URL: sock.url, DATABASE_POOL_MAX: '1' }),
     NODE_ENV: 'test', PGLITE_DIR: 'memory://', LOG_LEVEL: 'silent', SERVE_WEB: 'false',
-    RATE_LIMIT_MAX: '10000', AUTH_RATE_LIMIT_MAX: '1000', AI_RATE_LIMIT_MAX: '1000', ...env,
+    RATE_LIMIT_MAX: '10000', AUTH_RATE_LIMIT_MAX: '1000', AI_RATE_LIMIT_MAX: '1000', ENRICH_DELAY_SECONDS: '0', ...env,
   });
   const built = await buildApp(config, { embedder: embedder(), llm: deps.llm ?? null });
   if (sock) built.app.addHook('onClose', sock.stop);
@@ -74,6 +74,7 @@ export class Client {
 /** Deterministic LLM double used at the network boundary: cites the first document it receives and records its inputs. */
 export function fakeLlm() {
   const calls: Parameters<Llm['answer']>[0][] = [];
+  const enrichCalls: string[] = [];
   const llm: Llm = {
     async answer(input, onText) {
       calls.push(input);
@@ -82,9 +83,14 @@ export function fakeLlm() {
       onText(text);
       return { text, citations: [{ docIndex: 0, citedText: first.text.slice(0, 40), at: text.length }], refused: false };
     },
-    async summarize(title) { return `Resumen IA de ${title}`; },
+    // Behaves like a sloppy model: one real name, one invented name, duplicated and prefixed concepts.
+    async enrich(title, content) {
+      enrichCalls.push(title);
+      const people = /Marta/.test(content) ? ['Marta', 'Persona Inventada'] : [];
+      return { summary: `Resumen IA de ${title}`, people, concepts: ['Planificación', 'planificación', '#presupuesto'] };
+    },
   };
-  return { llm, calls };
+  return { llm, calls, enrichCalls };
 }
 
 export function parseSse(body: string) {

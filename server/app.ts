@@ -18,6 +18,7 @@ import { assistantRoutes, anthropicLlm, type Llm } from './assistant.ts';
 import { insightsRoutes } from './insights.ts';
 import { ioRoutes } from './io.ts';
 import { adminRoutes } from './admin.ts';
+import { createEnricher, enrichRoutes } from './enrich.ts';
 
 export const UPLOAD_LIMIT = 10 * 1024 * 1024;
 
@@ -35,7 +36,10 @@ export async function buildApp(config: Config, deps: { embedder?: Embedder; llm?
   const db = await openDb({ url: config.DATABASE_URL, pgliteDir: config.PGLITE_DIR, poolMax: config.DATABASE_POOL_MAX });
   const embedder = deps.embedder ?? localEmbedder(config.EMBEDDING_MODEL, config.MODEL_CACHE_DIR);
   const llm = deps.llm !== undefined ? deps.llm : config.ANTHROPIC_API_KEY ? anthropicLlm(config) : null;
-  const indexer = createIndexer(db, embedder, app.log);
+  const enricher = createEnricher(db, embedder, llm, app.log, {
+    enabled: config.AUTO_ENRICH, delayMs: config.ENRICH_DELAY_SECONDS * 1000, minChars: config.ENRICH_MIN_CHARS,
+  });
+  const indexer = createIndexer(db, embedder, app.log, (id) => enricher.schedule(id));
 
   await app.register(helmet, {
     contentSecurityPolicy: {
@@ -73,12 +77,14 @@ export async function buildApp(config: Config, deps: { embedder?: Embedder; llm?
   });
 
   await authPlugin(app, { db, config });
-  await notesRoutes(app, { db, indexer, coalesceSeconds: config.VERSION_COALESCE_SECONDS });
+  const enrichMin = config.AUTO_ENRICH ? config.ENRICH_MIN_CHARS : null;
+  await notesRoutes(app, { db, indexer, coalesceSeconds: config.VERSION_COALESCE_SECONDS, enrichMin });
   await searchRoutes(app, { db, embedder });
   await assistantRoutes(app, { db, embedder, llm, config });
   await insightsRoutes(app, { db });
-  await ioRoutes(app, { db, indexer });
+  await ioRoutes(app, { db, indexer, enrichMin });
   await adminRoutes(app, { db });
+  await enrichRoutes(app, { db, enricher, aiRateLimit: config.AI_RATE_LIMIT_MAX });
 
   app.get('/api/health', async () => {
     await db.query('SELECT 1');
@@ -108,6 +114,7 @@ export async function buildApp(config: Config, deps: { embedder?: Embedder; llm?
   app.addHook('onReady', async () => {
     // 'failed' too: a transient error (e.g. model download) should not leave a note unsearchable forever.
     for (const r of await db.query(`SELECT id FROM notes WHERE embedding_status <> 'ready'`)) indexer.enqueue(r.id);
+    for (const r of await db.query(`SELECT id FROM notes WHERE enrich_status IN ('pending', 'failed') AND deleted_at IS NULL`)) enricher.schedule(r.id);
   });
   const purge = () => Promise.all([
     db.query(`DELETE FROM notes WHERE deleted_at < now() - $1 * interval '1 day'`, [config.TRASH_RETENTION_DAYS]),
@@ -115,7 +122,7 @@ export async function buildApp(config: Config, deps: { embedder?: Embedder; llm?
   ]).catch((err) => app.log.error({ err }, 'daily purge failed'));
   const timer = setInterval(purge, 86_400_000).unref();
   app.addHook('onReady', async () => { await purge(); });
-  app.addHook('onClose', async () => { clearInterval(timer); await indexer.idle(); await db.close(); });
+  app.addHook('onClose', async () => { clearInterval(timer); enricher.stop(); await indexer.idle(); await enricher.idle(); await db.close(); });
 
-  return { app, db, indexer, llm };
+  return { app, db, indexer, enricher, llm };
 }

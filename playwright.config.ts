@@ -20,6 +20,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}/api/health`,
     timeout: 180_000,
     reuseExistingServer: false,
-    env: { PORT: String(PORT), HOST: '127.0.0.1', PGLITE_DIR: 'memory://', LOG_LEVEL: 'warn', ANTHROPIC_API_KEY: '', VERSION_COALESCE_SECONDS: '0' },
+    env: { PORT: String(PORT), HOST: '127.0.0.1', PGLITE_DIR: 'memory://', LOG_LEVEL: 'warn', ANTHROPIC_API_KEY: '', VERSION_COALESCE_SECONDS: '0', ENRICH_DELAY_SECONDS: '1' },
   },
 });

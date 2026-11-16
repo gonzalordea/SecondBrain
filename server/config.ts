@@ -21,6 +21,10 @@ const schema = z.object({
   RAG_TOP_K: z.coerce.number().int().min(1).max(30).default(8),
   // Autosaves by the same person within this window update one history entry instead of adding one each.
   VERSION_COALESCE_SECONDS: z.coerce.number().int().min(0).default(120),
+  // Automatic summary + people/concepts after edits have been quiet for ENRICH_DELAY_SECONDS.
+  AUTO_ENRICH: bool.default(true),
+  ENRICH_DELAY_SECONDS: z.coerce.number().min(0).default(45),
+  ENRICH_MIN_CHARS: z.coerce.number().int().min(0).default(300),
   TRASH_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),

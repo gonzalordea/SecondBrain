@@ -51,7 +51,7 @@ export async function loadNote(db: Db, noteId: string, userId: string, opts: { w
 export async function noteDto(db: Db, n: Record<string, any>) {
   const [tags, people, out, inc, owner, files] = await Promise.all([
     db.query('SELECT t.name, nt.source FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_id = $1 ORDER BY lower(t.name)', [n.id]),
-    db.query('SELECT e.name FROM note_entities ne JOIN entities e ON e.id = ne.entity_id WHERE ne.note_id = $1 ORDER BY lower(e.name)', [n.id]),
+    db.query('SELECT e.name, e.kind, ne.source FROM note_entities ne JOIN entities e ON e.id = ne.entity_id WHERE ne.note_id = $1 ORDER BY lower(e.name)', [n.id]),
     db.query(`SELECT DISTINCT n2.id, n2.title FROM note_links l JOIN notes n2 ON n2.id = l.target_id
                WHERE l.source_id = $1 AND n2.deleted_at IS NULL AND n2.owner_id = $2`, [n.id, n.owner_id]),
     db.query(`SELECT DISTINCT n2.id, n2.title FROM note_links l JOIN notes n2 ON n2.id = l.source_id
@@ -65,7 +65,10 @@ export async function noteDto(db: Db, n: Record<string, any>) {
     status: n.status, dueDate: fmtDate(n.due_date), version: n.version, source: n.source,
     embeddingStatus: n.embedding_status, createdAt: n.created_at, updatedAt: n.updated_at, deletedAt: n.deleted_at,
     access: n.access ?? 'owner', owner: { displayName: owner[0]?.display_name },
-    tags: tags.map((t) => t.name), textTags: tags.filter((t) => t.source === 'text').map((t) => t.name), people: people.map((p) => p.name),
+    tags: tags.map((t) => t.name), textTags: tags.filter((t) => t.source === 'text').map((t) => t.name), people: people.filter((p) => p.kind === 'person').map((p) => p.name),
+    aiPeople: people.filter((p) => p.kind === 'person' && p.source === 'ai').map((p) => p.name),
+    concepts: people.filter((p) => p.kind === 'concept').map((p) => p.name),
+    enrichStatus: n.enrich_status,
     // Links point at the owner's other notes; a share recipient must not learn their titles.
     linksOut: n.access && n.access !== 'owner' ? [] : out, linksIn: n.access && n.access !== 'owner' ? [] : inc,
     files: files.map((f) => ({ id: f.id, filename: f.filename, mime: f.mime, size: f.size, createdAt: f.created_at })),
@@ -93,7 +96,8 @@ const listQuery = z.object({
 
 const SORTS = { updated: 'n.updated_at DESC', created: 'n.created_at DESC', title: 'lower(n.title) ASC', due: 'n.due_date ASC NULLS LAST, n.updated_at DESC' } as const;
 
-export async function notesRoutes(app: FastifyInstance, { db, indexer, coalesceSeconds }: { db: Db; indexer: Indexer; coalesceSeconds: number }) {
+/** enrichMin: notes at least this long are marked for automatic enrichment when their text changes; null = off. */
+export async function notesRoutes(app: FastifyInstance, { db, indexer, coalesceSeconds, enrichMin }: { db: Db; indexer: Indexer; coalesceSeconds: number; enrichMin: number | null }) {
   app.get('/api/notes', async (req) => {
     const user = requireUser(req);
     const q = parse(listQuery, req.query);
@@ -133,7 +137,7 @@ export async function notesRoutes(app: FastifyInstance, { db, indexer, coalesceS
   app.post('/api/notes', async (req, reply) => {
     const user = requireUser(req);
     const body = parse(createBody, req.body);
-    const note = await createNote(db, user.id, body);
+    const note = await createNote(db, user.id, body, { enrichMin });
     indexer.enqueue(note.id);
     reply.code(201);
     return noteDto(db, note);
@@ -164,12 +168,13 @@ export async function notesRoutes(app: FastifyInstance, { db, indexer, coalesceS
            status = CASE WHEN $7::boolean THEN $8 ELSE status END,
            due_date = CASE WHEN $9::boolean THEN $10::date ELSE due_date END,
            version = version + 1, updated_at = now(),
-           embedding_status = CASE WHEN $11::boolean THEN 'pending' ELSE embedding_status END
+           embedding_status = CASE WHEN $11::boolean THEN 'pending' ELSE embedding_status END,
+           enrich_status = CASE WHEN $11::boolean AND $12::int IS NOT NULL AND length(coalesce($3, content)) >= $12 THEN 'pending' ELSE enrich_status END
          WHERE id = $1 RETURNING *`,
         [id, body.title ?? null, body.content ?? null, body.type ?? null,
           body.category !== undefined, body.category || null,
           body.status !== undefined, body.status ?? null,
-          body.dueDate !== undefined, body.dueDate ?? null, textChanged],
+          body.dueDate !== undefined, body.dueDate ?? null, textChanged, enrichMin],
       );
       if (textChanged) await recordVersion(t, row, user.id, 'edit', coalesceSeconds);
       if (textChanged || body.tags) await syncDerived(t, row as any, body.tags);
@@ -223,8 +228,9 @@ export async function notesRoutes(app: FastifyInstance, { db, indexer, coalesceS
       const [old] = await t.query('SELECT title, content FROM note_versions WHERE note_id = $1 AND version = $2', [id, v]);
       if (!old) throw notFound('Versión');
       const [row] = await t.query(
-        `UPDATE notes SET title = $2, content = $3, version = version + 1, updated_at = now(), embedding_status = 'pending'
-          WHERE id = $1 RETURNING *`, [id, old.title, old.content]);
+        `UPDATE notes SET title = $2, content = $3, version = version + 1, updated_at = now(), embedding_status = 'pending',
+                enrich_status = CASE WHEN $4::int IS NOT NULL AND length($3) >= $4 THEN 'pending' ELSE enrich_status END
+          WHERE id = $1 RETURNING *`, [id, old.title, old.content, enrichMin]);
       await recordVersion(t, row, user.id, 'restore');
       await syncDerived(t, row as any);
       return { ...row, access };
@@ -279,7 +285,7 @@ export async function notesRoutes(app: FastifyInstance, { db, indexer, coalesceS
                  WHERE owner_id = $1 AND deleted_at IS NULL AND category IS NOT NULL GROUP BY category ORDER BY count DESC`, [user.id]),
       db.query(`SELECT e.name, count(n.id)::int AS count FROM entities e
                   JOIN note_entities ne ON ne.entity_id = e.id JOIN notes n ON n.id = ne.note_id AND n.deleted_at IS NULL
-                 WHERE e.owner_id = $1 GROUP BY e.id ORDER BY count DESC, lower(e.name)`, [user.id]),
+                 WHERE e.owner_id = $1 AND e.kind = 'person' GROUP BY e.id ORDER BY count DESC, lower(e.name)`, [user.id]),
     ]);
     return { tags, categories, people };
   });
@@ -372,15 +378,14 @@ async function recordVersion(db: Db, n: Record<string, any>, userId: string, rea
 export async function createNote(
   db: Db, ownerId: string,
   body: { type: string; title: string; content: string; category?: string | null; status?: string | null; dueDate?: string | null; tags?: string[] },
-  source: 'manual' | 'import' | 'upload' = 'manual',
-  file?: { filename: string; mime: string; data: Buffer },
+  { source = 'manual', file, enrichMin = null }: { source?: 'manual' | 'import' | 'upload'; file?: { filename: string; mime: string; data: Buffer }; enrichMin?: number | null } = {},
 ) {
   return db.tx(async (t) => {
     const [row] = await t.query(
-      `INSERT INTO notes (owner_id, type, title, content, category, status, due_date, source)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      `INSERT INTO notes (owner_id, type, title, content, category, status, due_date, source, enrich_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $9::int IS NOT NULL AND length($4) >= $9 THEN 'pending' ELSE 'none' END) RETURNING *`,
       [ownerId, body.type, body.title, body.content, body.category || null,
-        body.type === 'task' ? body.status ?? 'todo' : body.status ?? null, body.dueDate ?? null, source]);
+        body.type === 'task' ? body.status ?? 'todo' : body.status ?? null, body.dueDate ?? null, source, enrichMin]);
     await recordVersion(t, row, ownerId, source === 'manual' ? 'create' : 'import');
     if (file) {
       // Same transaction as the note: a document never exists without its original, or vice versa.

@@ -110,14 +110,15 @@ export async function syncDerived(db: Db, note: { id: string; owner_id: string; 
     await db.query(`INSERT INTO note_tags (note_id, tag_id, source) VALUES ($1, $2, 'text') ON CONFLICT DO NOTHING`, [note.id, await upsertTag(t)]);
   }
 
-  await db.query('DELETE FROM note_entities WHERE note_id = $1', [note.id]);
+  await db.query("DELETE FROM note_entities WHERE note_id = $1 AND source = 'text'", [note.id]);
   for (const name of parsed.people) {
     const [e] = await db.query<{ id: string }>(
       `INSERT INTO entities (owner_id, kind, name) VALUES ($1, 'person', $2)
        ON CONFLICT (owner_id, kind, lower(name)) DO UPDATE SET name = entities.name RETURNING id`,
       [note.owner_id, name],
     );
-    await db.query('INSERT INTO note_entities (note_id, entity_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [note.id, e.id]);
+    // A person the AI had found and the user now @mentions becomes 'text', so AI re-runs leave it alone.
+    await db.query("INSERT INTO note_entities (note_id, entity_id, source) VALUES ($1, $2, 'text') ON CONFLICT (note_id, entity_id) DO UPDATE SET source = 'text'", [note.id, e.id]);
   }
 
   await db.query(`DELETE FROM note_links WHERE source_id = $1 AND kind = 'wikilink'`, [note.id]);
@@ -146,7 +147,7 @@ export async function syncDerived(db: Db, note: { id: string; owner_id: string; 
 
 export interface Indexer { enqueue(noteId: string): void; idle(): Promise<void> }
 
-export function createIndexer(db: Db, embedder: Embedder, log: FastifyBaseLogger): Indexer {
+export function createIndexer(db: Db, embedder: Embedder, log: FastifyBaseLogger, onIndexed?: (noteId: string) => void): Indexer {
   // ponytail: single in-process queue; pending notes are re-queued on boot. Move to a job table + workers if indexing becomes a bottleneck.
   let chain = Promise.resolve();
   const queued = new Set<string>();
@@ -158,9 +159,9 @@ export function createIndexer(db: Db, embedder: Embedder, log: FastifyBaseLogger
     const texts = pieces.length ? pieces : [n.title];
     // The title is prepended to what gets embedded (not to what is stored) so every chunk carries its topic.
     const vectors = await embedder.embed(texts.map((c) => `${n.title}\n${c}`));
-    await db.tx(async (t) => {
+    const done = await db.tx(async (t) => {
       const [still] = await t.query('SELECT 1 FROM notes WHERE id = $1 AND version = $2 FOR UPDATE', [n.id, n.version]);
-      if (!still) return; // edited meanwhile; the newer version is already queued
+      if (!still) return false; // edited meanwhile; the newer version is already queued
       await t.query('DELETE FROM chunks WHERE note_id = $1', [n.id]);
       for (let i = 0; i < texts.length; i++) {
         await t.query('INSERT INTO chunks (note_id, owner_id, idx, content, embedding) VALUES ($1, $2, $3, $4, $5::vector)',
@@ -168,7 +169,9 @@ export function createIndexer(db: Db, embedder: Embedder, log: FastifyBaseLogger
       }
       await t.query(`UPDATE notes SET embedding = $2::vector, embedding_status = 'ready' WHERE id = $1`,
         [n.id, toVector(meanNormalized(vectors))]);
+      return true;
     });
+    if (done) onIndexed?.(n.id);
   }
 
   return {

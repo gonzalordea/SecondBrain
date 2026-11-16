@@ -38,7 +38,7 @@ export const attachment = (name: string) => {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
 };
 
-export async function ioRoutes(app: FastifyInstance, { db, indexer }: { db: Db; indexer: Indexer }) {
+export async function ioRoutes(app: FastifyInstance, { db, indexer, enrichMin }: { db: Db; indexer: Indexer; enrichMin: number | null }) {
   app.get('/api/export', async (req, reply) => {
     const user = requireUser(req);
     const notes = await db.query(
@@ -113,7 +113,7 @@ export async function ioRoutes(app: FastifyInstance, { db, indexer }: { db: Db; 
           if (!parsed.success) throw new Error(`No es una exportación válida de SecondBrain: ${parsed.error.issues[0]?.path.join('.')} ${parsed.error.issues[0]?.message}`);
           const idMap = new Map<string, string>();
           for (const n of parsed.data.notes) {
-            const note = await createNote(db, user.id, { ...n, category: n.category ?? null, status: n.status ?? null, dueDate: n.dueDate ?? null }, 'import');
+            const note = await createNote(db, user.id, { ...n, category: n.category ?? null, status: n.status ?? null, dueDate: n.dueDate ?? null }, { source: 'import', enrichMin });
             idMap.set(n.id, note.id);
             created.push({ id: note.id, title: note.title, type: note.type });
             indexer.enqueue(note.id);
@@ -126,8 +126,8 @@ export async function ioRoutes(app: FastifyInstance, { db, indexer }: { db: Db; 
           const { title, content } = await extractFileText(name, buf);
           if (!content.trim()) throw new Error('No se pudo extraer texto (¿PDF escaneado sin OCR?)');
           if (content.length > MAX_CONTENT) throw new Error(`El texto supera ${MAX_CONTENT} caracteres`);
-          const note = await createNote(db, user.id, { type: 'document', title, content }, 'upload',
-            { filename: safeFilename(name), mime: mimeFor(name), data: buf });
+          const note = await createNote(db, user.id, { type: 'document', title, content },
+            { source: 'upload', enrichMin, file: { filename: safeFilename(name), mime: mimeFor(name), data: buf } });
           created.push({ id: note.id, title: note.title, type: note.type });
           indexer.enqueue(note.id);
         }

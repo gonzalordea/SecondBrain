@@ -81,3 +81,18 @@ describe('config', () => {
     expect(() => loadConfig({ RAG_MIN_SCORE: '5' })).toThrow();
   });
 });
+
+describe('cleanEnrichment', () => {
+  it('drops invented people, dedupes, strips prefixes and caps lengths', async () => {
+    const { cleanEnrichment } = await import('../../server/enrich.ts');
+    const r = cleanEnrichment({
+      summary: '  Resumen.  ',
+      people: ['José Pérez', 'jose perez', '@Ana', 'Nadie Real', 'x'.repeat(90)],
+      concepts: ['IA', 'ia', '#ahorro', '', ...Array.from({ length: 20 }, (_, i) => `tema ${i}`)],
+    }, 'Hablé con Jose Perez y con Ana sobre ahorro.');
+    expect(r.summary).toBe('Resumen.');
+    expect(r.people).toEqual(['José Pérez', 'Ana']); // accent-insensitive match against the text
+    expect(r.concepts.slice(0, 2)).toEqual(['IA', 'ahorro']);
+    expect(r.concepts).toHaveLength(12);
+  });
+});

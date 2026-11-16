@@ -32,7 +32,9 @@ Errores: `{ "error": { "code": string, "message": string, "issues"?: [{ "path", 
 
 ## Notas
 
-`Note = { id, type: 'note'|'document'|'task', title, content, summary, summaryMethod, category, status, dueDate, version, source, embeddingStatus, createdAt, updatedAt, deletedAt, access: 'owner'|'editor'|'viewer', owner: { displayName }, tags[], textTags[], people[], linksOut[{id,title}], linksIn[{id,title}], files[{id, filename, mime, size, createdAt}] }`
+`Note = { id, type: 'note'|'document'|'task', title, content, summary, summaryMethod, category, status, dueDate, version, source, embeddingStatus, createdAt, updatedAt, deletedAt, access: 'owner'|'editor'|'viewer', owner: { displayName }, tags[], textTags[], people[], linksOut[{id,title}], linksIn[{id,title}], files[{id, filename, mime, size, createdAt}], aiPeople[], concepts[], enrichStatus: 'none'|'pending'|'done'|'failed' }`
+
+`people` incluye las personas escritas con `@` y las que encontró la IA (`aiPeople` es ese subconjunto). `concepts` son temas detectados por la IA; no son etiquetas. `enrichStatus = 'pending'` significa que el resumen y las entidades se recalcularán solos cuando la edición se calme.
 
 `textTags` son las etiquetas que vienen de `#hashtags` del texto (no se quitan desde la lista de etiquetas). `linksOut/linksIn` van vacíos para quien no es propietario.
 
@@ -52,7 +54,7 @@ Errores: `{ "error": { "code": string, "message": string, "issues"?: [{ "path", 
 | GET | `/notes/:id/shares` | — | Solo propietario |
 | PUT | `/notes/:id/shares` | `{ email, role: 'viewer'|'editor' }` | Crea o cambia |
 | DELETE | `/notes/:id/shares/:userId` | — | Propietario, o el propio destinatario |
-| POST | `/notes/:id/summarize` | — | `{ summary, method: 'llm'|'extractive' }` |
+| POST | `/notes/:id/summarize` | — | Analiza ya la nota (resumen + personas + conceptos con IA; solo resumen extractivo sin clave). `{ summary, method: 'llm'|'extractive' }` |
 | GET | `/notes/:id/export.md` | — | `text/markdown` con *front matter* |
 | GET | `/notes/:id/files/:fileId` | — | Descarga el fichero original de un documento importado (mismo permiso que leer la nota; `attachment`, CSP `sandbox`) |
 | GET | `/facets` | — | `{ tags, categories, people }` con recuentos |

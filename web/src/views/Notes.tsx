@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { api, ApiError, type Note, type NoteSummary, type NoteType, type TaskStatus } from '../api.ts';
 import { useSession } from '../session.ts';
 import { fmtBytes, fmtDate, lineDiff, renderMarkdown, timeAgo } from '../text.tsx';
@@ -139,6 +139,8 @@ function Editor({ id, backHref, onChange, onDeleted, onRestored }: {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pending = useRef<Partial<{ title: string; content: string }>>({});
   const titleRef = useRef<HTMLInputElement>(null);
+  // Background enrichment only touches its own fields, so it can merge into the note while you type.
+  const onEnriched = useCallback((e: Enriched) => setNote((n) => n && { ...n, ...e }), []);
 
   useEffect(() => {
     if (!loaded.data) return;
@@ -272,7 +274,7 @@ function Editor({ id, backHref, onChange, onDeleted, onRestored }: {
         )}
       </div>
 
-      <Aside note={note} onSummary={(summary, method) => setNote({ ...note, summary, summaryMethod: method })} />
+      <Aside note={note} onEnriched={onEnriched} />
 
       <Dialog open={dialog === 'history'} onClose={() => setDialog(null)} title="Historial de versiones" wide>
         <History note={note} readOnly={readOnly} onRestored={(n) => {
@@ -371,9 +373,22 @@ function TagInput({ tags, fromText, suggestions, readOnly, onChange }: { tags: s
   );
 }
 
-function Aside({ note, onSummary }: { note: Note; onSummary: (s: string, m: 'llm' | 'extractive') => void }) {
+type Enriched = Pick<Note, 'summary' | 'summaryMethod' | 'people' | 'aiPeople' | 'concepts' | 'enrichStatus' | 'embeddingStatus'>;
+const enrichedFields = (n: Note): Enriched =>
+  ({ summary: n.summary, summaryMethod: n.summaryMethod, people: n.people, aiPeople: n.aiPeople, concepts: n.concepts, enrichStatus: n.enrichStatus, embeddingStatus: n.embeddingStatus });
+
+function Aside({ note, onEnriched }: { note: Note; onEnriched: (e: Enriched) => void }) {
   const toast = useToast();
   const [summarizing, setSummarizing] = useState(false);
+
+  // Enrichment runs in the background after edits settle; refresh just its fields (never the text being edited).
+  useEffect(() => {
+    if (note.enrichStatus !== 'pending') return;
+    const t = setInterval(() => {
+      api<Note>(`/notes/${note.id}`).then((n) => n.enrichStatus !== 'pending' && onEnriched(enrichedFields(n))).catch(() => {});
+    }, 5000);
+    return () => clearInterval(t);
+  }, [note.id, note.enrichStatus, onEnriched]);
   const related = useAsync((signal) => api<{ items: { id: string; title: string; type: NoteType; similarity: number; linked: boolean; sharedTags: number }[]; ready: boolean }>(
     `/notes/${note.id}/related`, { signal }), [note.id, note.embeddingStatus === 'ready', note.version]);
   const [linked, setLinked] = useState<Set<string>>(new Set());
@@ -388,8 +403,8 @@ function Aside({ note, onSummary }: { note: Note; onSummary: (s: string, m: 'llm
   async function summarize() {
     setSummarizing(true);
     try {
-      const r = await api<{ summary: string; method: 'llm' | 'extractive' }>(`/notes/${note.id}/summarize`, { method: 'POST' });
-      onSummary(r.summary, r.method);
+      await api(`/notes/${note.id}/summarize`, { method: 'POST' });
+      onEnriched(enrichedFields(await api<Note>(`/notes/${note.id}`)));
     } catch (e) { toast({ message: errMsg(e), tone: 'error' }); }
     finally { setSummarizing(false); }
   }
@@ -440,6 +455,12 @@ function Aside({ note, onSummary }: { note: Note; onSummary: (s: string, m: 'llm
         {note.summary
           ? <><p className="summary">{note.summary}</p><p className="tiny muted">{note.summaryMethod === 'llm' ? 'Generado con IA' : 'Extractivo: frases más representativas (IA no configurada)'}</p></>
           : <p className="muted small">Aún sin resumen.</p>}
+        {note.enrichStatus === 'pending' && (
+          <p className="tiny muted enrich-status" role="status"><Spinner /> Se actualizará solo cuando dejes de editar.</p>
+        )}
+        {note.enrichStatus === 'failed' && (
+          <p className="tiny enrich-failed" role="status"><Icon name="alert" size={13} /> No se pudo analizar la última versión. Prueba «{note.summary ? 'Regenerar' : 'Generar'}».</p>
+        )}
       </section>
 
       {note.access === 'owner' && (
@@ -466,7 +487,7 @@ function Aside({ note, onSummary }: { note: Note; onSummary: (s: string, m: 'llm
         </section>
       )}
 
-      {(links.length > 0 || note.people.length > 0) && (
+      {(links.length > 0 || note.people.length > 0 || note.concepts.length > 0) && (
         <section className="card">
           {links.length > 0 && (<>
             <h2>Enlaces</h2>
@@ -474,7 +495,15 @@ function Aside({ note, onSummary }: { note: Note; onSummary: (s: string, m: 'llm
           </>)}
           {note.people.length > 0 && (<>
             <h2>Personas</h2>
-            <div className="chips">{note.people.map((p) => <a key={p} className="chip person" href={`#/search?q=${encodeURIComponent(p)}`}>@{p}</a>)}</div>
+            <div className="chips">{note.people.map((p) => (
+              <a key={p} className="chip person" href={`#/search?q=${encodeURIComponent(p)}`} title={note.aiPeople.includes(p) ? 'Detectada por la IA' : 'Mencionada con @'}>
+                {note.aiPeople.includes(p) ? <Icon name="sparkle" size={11} /> : '@'}{p}
+              </a>
+            ))}</div>
+          </>)}
+          {note.concepts.length > 0 && (<>
+            <h2>Conceptos <span className="ai-badge" title="Detectados por la IA"><Icon name="sparkle" size={11} /> IA</span></h2>
+            <div className="chips">{note.concepts.map((c) => <a key={c} className="chip concept" href={`#/search?q=${encodeURIComponent(c)}`}>{c}</a>)}</div>
           </>)}
         </section>
       )}

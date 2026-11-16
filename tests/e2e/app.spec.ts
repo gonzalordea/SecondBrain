@@ -142,3 +142,23 @@ test('phone layout: drawer navigation, list ↔ editor, no horizontal scroll @mo
     expect(overflow, route).toBeLessThanOrEqual(0);
   }
 });
+
+test('a long note gets its summary automatically once you stop typing', async ({ page }) => {
+  await register(page, `auto-${Date.now()}@example.com`);
+  const body = [
+    'El huerto urbano necesita riego cada dos días durante el verano y cada cinco en invierno.',
+    'Las tomateras se plantan en abril, después de las últimas heladas, con tutores de caña.',
+    'El compost casero se prepara con restos de verdura, hojas secas y un poco de tierra del jardín.',
+    'Conviene rotar los cultivos cada año para que la tierra no se agote y haya menos plagas.',
+  ].join(' ');
+  await newNote(page, 'Cuaderno del huerto', body);
+  const card = page.locator('.editor-aside .card').filter({ has: page.getByRole('heading', { name: 'Resumen' }) });
+  await expect(card.getByText('Se actualizará solo cuando dejes de editar.')).toBeVisible();
+  // No API key in this run, so the automatic summary is extractive; the editor picks it up by itself.
+  await expect(card.getByText(/Extractivo/)).toBeVisible({ timeout: 30_000 });
+  // Extractive = whole sentences taken from the note itself.
+  const summary = await card.locator('.summary').innerText();
+  const sentences = summary.split(/(?<=.)s+/).filter(Boolean);
+  expect(sentences.length).toBeGreaterThan(0);
+  for (const sentence of sentences) expect(body).toContain(sentence);
+});

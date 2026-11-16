@@ -4,10 +4,10 @@ import { api } from '../api.ts';
 import { Empty, ErrorState, Icon, navigate, Skeleton, useAsync } from '../ui.tsx';
 
 type Kind = 'note' | 'concept' | 'person';
-interface GNode extends SimulationNodeDatum { id: string; kind: Kind; label: string; type?: string; degree: number }
-interface GEdge { source: string; target: string; kind: 'tag' | 'mention' | 'link' | 'similar'; weight?: number }
+interface GNode extends SimulationNodeDatum { id: string; kind: Kind; label: string; type?: string; degree: number; isTag?: boolean }
+interface GEdge { source: string; target: string; kind: 'tag' | 'concept' | 'mention' | 'link' | 'similar'; weight?: number }
 
-const KIND_LABEL: Record<Kind, string> = { note: 'Notas', concept: 'Conceptos (#etiquetas)', person: 'Personas (@menciones)' };
+const KIND_LABEL: Record<Kind, string> = { note: 'Notas', concept: 'Conceptos', person: 'Personas' };
 const W = 1000, H = 700;
 
 export function GraphView() {
@@ -124,7 +124,8 @@ function Canvas({ layout }: { layout: { box: { x: number; y: number; w: number; 
   };
   const open = (n: GNode) => {
     if (n.kind === 'note') navigate(`#/notes/${n.id.slice(2)}`);
-    else if (n.kind === 'concept') navigate(`#/notes?tag=${encodeURIComponent(n.label)}`);
+    // AI-found concepts are not tags, so they open a search instead of a tag filter.
+    else if (n.kind === 'concept' && n.isTag) navigate(`#/notes?tag=${encodeURIComponent(n.label)}`);
     else navigate(`#/search?q=${encodeURIComponent(n.label)}`);
   };
 
@@ -148,7 +149,7 @@ function Canvas({ layout }: { layout: { box: { x: number; y: number; w: number; 
                 onClick={() => open(n)} onKeyDown={(e) => e.key === 'Enter' && open(n)}>
                 <circle r={r + 8} className="hit" />
                 <Shape kind={n.kind} r={r} />
-                {showLabel && <text y={r + 13} textAnchor="middle" className="glabel">{n.kind === 'concept' ? '#' : n.kind === 'person' ? '@' : ''}{n.label.length > 32 ? `${n.label.slice(0, 30)}…` : n.label}</text>}
+                {showLabel && <text y={r + 13} textAnchor="middle" className="glabel">{n.kind === 'concept' ? (n.isTag ? '#' : '') : n.kind === 'person' ? '@' : ''}{n.label.length > 32 ? `${n.label.slice(0, 30)}…` : n.label}</text>}
               </g>
             );
           })}
@@ -169,7 +170,7 @@ function GraphList({ nodes, neighbours }: { nodes: GNode[]; neighbours: Map<stri
       <tbody>
         {[...nodes].sort((a, b) => b.degree - a.degree).map((n) => (
           <tr key={n.id}>
-            <td>{n.kind === 'note' ? <a href={`#/notes/${n.id.slice(2)}`}>{n.label}</a> : `${n.kind === 'concept' ? '#' : '@'}${n.label}`}</td>
+            <td>{n.kind === 'note' ? <a href={`#/notes/${n.id.slice(2)}`}>{n.label}</a> : `${n.kind === 'concept' ? (n.isTag ? '#' : '') : '@'}${n.label}`}</td>
             <td>{n.kind === 'note' ? 'Nota' : n.kind === 'concept' ? 'Concepto' : 'Persona'}</td>
             <td className="small">{[...(neighbours.get(n.id) ?? [])].map((id) => byId.get(id)?.label).filter(Boolean).slice(0, 8).join(' · ')}</td>
           </tr>

@@ -59,13 +59,13 @@ La imagen descarga el modelo de embeddings durante el *build*, así que el conte
 npm test
 ```
 
-Unitarios + integración (58): API real con Fastify `inject`, PostgreSQL real en memoria (PGlite) y el modelo de embeddings real. Incluye la batería de seguridad (`tests/integration/security.test.ts`).
+Unitarios + integración (66): API real con Fastify `inject`, PostgreSQL real en memoria (PGlite) y el modelo de embeddings real. Incluye la batería de seguridad (`tests/integration/security.test.ts`).
 
 ```bash
 npm run test:pg
 ```
 
-Los mismos 58 tests, pero a través del driver de producción (`node-postgres`) hablando el protocolo de PostgreSQL por TCP.
+Los mismos 66 tests, pero a través del driver de producción (`node-postgres`) hablando el protocolo de PostgreSQL por TCP.
 
 ```bash
 npx playwright install chromium
@@ -75,7 +75,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-E2E (5, escritorio y móvil): compila el frontend, arranca el servidor real y lo maneja con Chromium.
+E2E (6, escritorio y móvil): compila el frontend, arranca el servidor real y lo maneja con Chromium.
 
 ```bash
 npm run typecheck
@@ -91,6 +91,8 @@ npm run typecheck
 | `LLM_MODEL` | `claude-opus-5-5` | Modelo de Claude. |
 | `EMBEDDING_MODEL` | `Xenova/paraphrase-multilingual-MiniLM-L12-v2` | Modelo local (384 dim). Cambiarlo exige migrar la dimensión de los vectores. |
 | `RAG_MIN_SCORE` / `RAG_TOP_K` | `0.3` / `8` | Umbral de similitud y nº de fragmentos para el asistente. |
+| `AUTO_ENRICH` | `true` | Resumen (y, con clave de IA, personas y conceptos) automáticos tras editar. |
+| `ENRICH_DELAY_SECONDS` / `ENRICH_MIN_CHARS` | `45` / `300` | Espera sin cambios antes de analizar, y longitud mínima de la nota. |
 | `VERSION_COALESCE_SECONDS` | `120` | Autoguardados del mismo autor dentro de esta ventana forman una sola versión. |
 | `TRASH_RETENTION_DAYS` | `30` | Purga automática de la papelera. |
 | `RATE_LIMIT_MAX` / `AUTH_RATE_LIMIT_MAX` / `AI_RATE_LIMIT_MAX` | `300` / `10` / `20` | Peticiones por minuto e IP (general / auth / IA). |

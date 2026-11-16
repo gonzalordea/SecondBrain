@@ -558,3 +558,12 @@ ins { background: var(--ok-soft); text-decoration: none; } del { background: var
 .file-list small { font-size: .74rem; }
 .file-icon { flex: none; width: 34px; height: 40px; border-radius: 6px 12px 6px 6px; display: grid; place-items: end center; padding-bottom: 5px;
   font: 700 .62rem var(--sans); letter-spacing: .04em; color: var(--accent-ink); background: var(--k-concept); }
+
+/* ---------- AI enrichment ---------- */
+.chip.concept { background: color-mix(in oklab, var(--k-concept) 16%, transparent); color: var(--ink); }
+.chip.person svg, .ai-badge svg { color: var(--accent); }
+.ai-badge { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 0 6px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); font-size: .66rem; letter-spacing: .04em; vertical-align: 1px; }
+.editor-aside .card h2 + .chips { margin-bottom: 6px; }
+.enrich-status { display: flex; align-items: center; gap: 6px; }
+.enrich-status .spinner { width: 11px; height: 11px; border-width: 1.5px; }
+.enrich-failed { color: var(--warn); display: flex; align-items: center; gap: 6px; }

@@ -5,9 +5,9 @@
 | Componente | Cómo se verificó | Resultado |
 |---|---|---|
 | Typecheck de todo el código (servidor, web, tests) | `npm run typecheck` | Sin errores |
-| API completa sobre PGlite (Postgres 17 + pgvector en WASM) | `npm test` — 58 tests (unit + integración + seguridad) con el modelo de embeddings real | 58/58 |
-| La misma API sobre el **driver de producción** `node-postgres` | `npm run test:pg` — los mismos 58 tests hablando el protocolo de PostgreSQL por TCP (PGlite socket server), pool de 1 conexión | 58/58 |
-| Frontend + servidor real en navegador | `npm run test:e2e` — Chromium, escritorio y móvil (Pixel 7) | 5/5 |
+| API completa sobre PGlite (Postgres 17 + pgvector en WASM) | `npm test` — 66 tests (unit + integración + seguridad) con el modelo de embeddings real | 66/66 |
+| La misma API sobre el **driver de producción** `node-postgres` | `npm run test:pg` — los mismos 66 tests hablando el protocolo de PostgreSQL por TCP (PGlite socket server), pool de 1 conexión | 66/66 |
+| Frontend + servidor real en navegador | `npm run test:e2e` — Chromium, escritorio y móvil (Pixel 7) | 6/6 |
 | Revisión visual | Navegador integrado: login, editor, búsqueda, grafo, panorama, papelera, móvil 375 px, tema claro/oscuro, sin violaciones de CSP en consola | Correcto tras los arreglos |
 | Extracción de PDF y ficheros originales | Tests con un PDF real: texto extraído, descarga idéntica byte a byte (SHA-256), permisos; E2E descargando el original en Chromium | Correcto |
 | Búsqueda semántica | Consultas sin palabras en común con la nota correcta ("¿qué come mi mascota?" → nota del gato) | Correcto |
@@ -21,7 +21,9 @@
 
 ## Limitaciones funcionales conocidas
 
-- **Entidades por sintaxis, no por IA.** Personas = `@Nombre` / `@[Nombre Apellido]`; conceptos = `#etiquetas`. No se extraen entidades de texto libre ni de PDFs importados.
+- **Entidades por IA solo con clave.** Sin `ANTHROPIC_API_KEY`, las personas y conceptos siguen saliendo solo de `@Nombre` y `#etiqueta`, y el resumen automático es extractivo. Con clave, la extracción usa salida estructurada de Claude; el pipeline (programación tras editar, validación, filtro de nombres inventados, almacenamiento, grafo, UI) está probado con un doble del modelo, **no** contra la API real.
+- **Notas anteriores a esta función** no se analizan solas: se analizan al editarlas o con el botón «Generar» (para no lanzar cientos de llamadas a la IA al actualizar).
+- **Coste de IA**: una llamada por nota y por sesión de edición (tras `ENRICH_DELAY_SECONDS` sin cambios), solo en notas de al menos `ENRICH_MIN_CHARS` caracteres. Se puede desactivar con `AUTO_ENRICH=false`.
 - **PDF escaneados** (imagen sin capa de texto) no se pueden importar: no hay OCR. Los ficheros importados sí se guardan tal cual y se pueden volver a descargar desde la nota.
 - **El asistente no ve las notas compartidas contigo**, solo las tuyas (decisión de privacidad).
 - **Renombrar una nota** no reescribe los `[[Título antiguo]]` de otras notas; esos enlaces se recalculan cuando se edita la nota que los contiene.
@@ -34,6 +36,7 @@
 
 ## Límites técnicos (marcados con `ponytail:` en el código)
 
+- **Enriquecimiento automático en proceso** (`enrich.ts`): temporizadores en memoria y una cola en serie; las notas pendientes o fallidas se reprograman al arrancar. Con varias réplicas, tabla de trabajos.
 - **Cola de indexado en proceso** (`processing.ts`): una sola cola por servidor; las notas pendientes o fallidas se reencolan al arrancar. Con varias réplicas o mucho volumen, pasar a una tabla de trabajos con workers.
 - **Búsqueda vectorial exacta por usuario** (`search.ts`, migración 003): correcta siempre y rápida para bibliotecas personales (miles de fragmentos). Por encima de ~100 000 fragmentos por usuario, usar HNSW con `iterative_scan` de pgvector ≥ 0.8 o particionar por usuario.
 - **Vecinos del grafo y "conexiones ocultas"** se calculan en cada petición (O(n·k) sobre ≤ 500 notas). Para más, precalcular en una tabla al indexar.

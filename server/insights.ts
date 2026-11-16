@@ -37,11 +37,11 @@ export async function insightsRoutes(app: FastifyInstance, { db }: { db: Db }) {
     const [[{ total }], tagEdges, personEdges, links, similar] = await Promise.all([
       db.query(`SELECT count(*)::int AS total FROM notes WHERE owner_id = $1 AND deleted_at IS NULL`, [user.id]),
       db.query(`SELECT nt.note_id, t.id, t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_id = ANY($1::uuid[])`, [ids]),
-      db.query(`SELECT ne.note_id, e.id, e.name FROM note_entities ne JOIN entities e ON e.id = ne.entity_id WHERE ne.note_id = ANY($1::uuid[])`, [ids]),
+      db.query(`SELECT ne.note_id, e.id, e.name, e.kind FROM note_entities ne JOIN entities e ON e.id = ne.entity_id WHERE ne.note_id = ANY($1::uuid[])`, [ids]),
       db.query(`SELECT DISTINCT source_id, target_id FROM note_links WHERE source_id = ANY($1::uuid[]) AND target_id = ANY($1::uuid[])`, [ids]),
       q.similar === '1' ? similarPairs(db, user.id, q.threshold, 3) : Promise.resolve([]),
     ]);
-    const nodes = new Map<string, { id: string; kind: string; label: string; type?: string; degree: number }>();
+    const nodes = new Map<string, { id: string; kind: string; label: string; type?: string; degree: number; isTag?: boolean }>();
     for (const n of notes) nodes.set(`n:${n.id}`, { id: `n:${n.id}`, kind: 'note', label: n.title, type: n.type, degree: 0 });
     const edges: { source: string; target: string; kind: string; weight?: number }[] = [];
     const add = (source: string, target: string, kind: string, weight?: number) => {
@@ -49,11 +49,21 @@ export async function insightsRoutes(app: FastifyInstance, { db }: { db: Db }) {
       nodes.get(source)!.degree++; nodes.get(target)!.degree++;
       edges.push({ source, target, kind, ...(weight !== undefined && { weight: Math.round(weight * 1000) / 1000 }) });
     };
+    // A #tag and an AI-found concept with the same name are one concept node.
+    const conceptId = (name: string) => `c:${name.toLowerCase()}`;
     for (const t of tagEdges) {
-      if (!nodes.has(`t:${t.id}`)) nodes.set(`t:${t.id}`, { id: `t:${t.id}`, kind: 'concept', label: t.name, degree: 0 });
-      add(`n:${t.note_id}`, `t:${t.id}`, 'tag');
+      const id = conceptId(t.name);
+      if (!nodes.has(id)) nodes.set(id, { id, kind: 'concept', label: t.name, degree: 0, isTag: true });
+      nodes.get(id)!.isTag = true;
+      add(`n:${t.note_id}`, id, 'tag');
     }
     for (const p of personEdges) {
+      if (p.kind === 'concept') {
+        const id = conceptId(p.name);
+        if (!nodes.has(id)) nodes.set(id, { id, kind: 'concept', label: p.name, degree: 0, isTag: false });
+        if (!edges.some((e) => e.source === `n:${p.note_id}` && e.target === id)) add(`n:${p.note_id}`, id, 'concept');
+        continue;
+      }
       if (!nodes.has(`p:${p.id}`)) nodes.set(`p:${p.id}`, { id: `p:${p.id}`, kind: 'person', label: p.name, degree: 0 });
       add(`n:${p.note_id}`, `p:${p.id}`, 'mention');
     }
@@ -109,7 +119,7 @@ export async function insightsRoutes(app: FastifyInstance, { db }: { db: Db }) {
       db.query(`SELECT t.name, count(*)::int AS count FROM note_tags nt JOIN tags t ON t.id = nt.tag_id JOIN notes n ON n.id = nt.note_id
                  WHERE ${liveN} GROUP BY t.id ORDER BY count DESC, lower(t.name) LIMIT 8`, u),
       db.query(`SELECT e.name, count(*)::int AS count FROM note_entities ne JOIN entities e ON e.id = ne.entity_id JOIN notes n ON n.id = ne.note_id
-                 WHERE ${liveN} GROUP BY e.id ORDER BY count DESC, lower(e.name) LIMIT 8`, u),
+                 WHERE ${liveN} AND e.kind = 'person' GROUP BY e.id ORDER BY count DESC, lower(e.name) LIMIT 8`, u),
       db.query(`SELECT to_char(w, 'YYYY-MM-DD') AS week,
                        (SELECT count(*) FROM notes WHERE owner_id = $1 AND created_at >= w AND created_at < w + interval '7 days')::int AS created,
                        (SELECT count(*) FROM notes WHERE owner_id = $1 AND updated_at >= w AND updated_at < w + interval '7 days')::int AS updated
