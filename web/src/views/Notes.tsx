@@ -75,8 +75,8 @@ export function NotesView({ noteId, query }: { noteId?: string; query: URLSearch
         </header>
         {list.error ? <ErrorState error={list.error} retry={list.reload} /> : !list.data ? <div className="pad"><Skeleton lines={6} /></div> : list.data.items.length === 0 ? (
           scope === 'shared'
-            ? <Empty icon="people" title="Nadie ha compartido nada contigo todavía">Cuando alguien comparta una nota contigo aparecerá aquí.</Empty>
-            : <Empty icon={type ?? 'note'} title="Aquí no hay nada aún" action={<a className="btn primary" href={newHref}><Icon name="plus" size={16} /> Crear {type ? TYPE_LABEL[type as NoteType].toLowerCase() : 'nota'}</a>}>
+            ? <Empty title="Nadie ha compartido nada contigo todavía">Cuando alguien comparta una nota contigo aparecerá aquí.</Empty>
+            : <Empty title="Aquí no hay nada aún" action={<a className="btn primary" href={newHref}><Icon name="plus" size={16} /> Crear {type ? TYPE_LABEL[type as NoteType].toLowerCase() : 'nota'}</a>}>
                 Escribe, importa documentos o crea tareas. Usa <code>#etiquetas</code>, <code>@personas</code> y <code>[[enlaces]]</code> para conectar ideas.
               </Empty>
         ) : (
@@ -113,7 +113,7 @@ export function NotesView({ noteId, query }: { noteId?: string; query: URLSearch
       <section className="editor-pane" aria-label="Editor">
         {noteId === 'new' ? <div className="pad center"><Spinner label="Creando nota" /></div>
           : open ? <Editor key={open} id={open} backHref={`#/notes${qs ? `?${qs}` : ''}`} onChange={patchListItem} onDeleted={(id) => { removeListItem(id); list.reload(); }} onRestored={list.reload} />
-          : <Empty icon="edit" title="Selecciona una nota" action={<a className="btn" href={newHref}>Empezar una nueva</a>}>O pulsa <kbd>Ctrl K</kbd> para buscar por significado.</Empty>}
+          : <Empty title="Selecciona una nota" action={<a className="btn" href={newHref}>Empezar una nueva</a>}>O pulsa <kbd>Ctrl K</kbd> para buscar por significado.</Empty>}
       </section>
     </div>
   );
@@ -453,7 +453,9 @@ function Aside({ note, onEnriched }: { note: Note; onEnriched: (e: Enriched) => 
           )}
         </header>
         {note.summary
-          ? <><p className="summary">{note.summary}</p><p className="tiny muted">{note.summaryMethod === 'llm' ? 'Generado con IA' : 'Extractivo: frases más representativas (IA no configurada)'}</p></>
+          ? <><p className="summary">{note.summary}</p><p className={`summary-method ${note.summaryMethod === 'llm' ? 'ai' : ''}`}>{note.summaryMethod === 'llm'
+            ? <><Icon name="sparkle" size={11} /> Generado con IA</>
+            : 'Extractivo: frases más representativas (IA no configurada)'}</p></>
           : <p className="muted small">Aún sin resumen.</p>}
         {note.enrichStatus === 'pending' && (
           <p className="tiny muted enrich-status" role="status"><Spinner /> Se actualizará solo cuando dejes de editar.</p>
@@ -530,7 +532,7 @@ function History({ note, readOnly, onRestored }: { note: Note; readOnly: boolean
 
   if (list.error) return <ErrorState error={list.error} retry={list.reload} />;
   if (!list.data) return <Skeleton />;
-  if (list.data.versions.length < 2) return <Empty icon="history" title="Aún no hay versiones anteriores">Cada sesión de edición guarda una versión (lo que escribes seguido en menos de 2 minutos cuenta como una). Restaurar una versión nunca borra las demás.</Empty>;
+  if (list.data.versions.length < 2) return <Empty title="Aún no hay versiones anteriores">Cada sesión de edición guarda una versión (lo que escribes seguido en menos de 2 minutos cuenta como una). Restaurar una versión nunca borra las demás.</Empty>;
 
   return (
     <div className="history">

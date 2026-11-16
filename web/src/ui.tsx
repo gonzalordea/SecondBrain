@@ -34,6 +34,8 @@ const PATHS: Record<string, string> = {
   send: 'M22 2L11 13M22 2l-7 20-4-9-9-4z',
   alert: 'M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z',
   people: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
+  home: 'M3 10.5 12 3l9 7.5M5 9v11h5v-6h4v6h5V9',
+  monitor: 'M3 4h18v12H3zM8 20h8M12 16v4',
   shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
 };
 
@@ -63,10 +65,10 @@ export function Skeleton({ lines = 3 }: { lines?: number }) {
   );
 }
 
-export function Empty({ icon = 'inbox', title, children, action }: { icon?: string; title: string; children?: ReactNode; action?: ReactNode }) {
+/** Typographic empty state: a highlighter stroke, one line, one action. No decorative icons. */
+export function Empty({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
   return (
     <div className="empty">
-      <div className="empty-icon"><Icon name={icon} size={26} /></div>
       <h3>{title}</h3>
       {children && <p>{children}</p>}
       {action}
@@ -78,7 +80,6 @@ export function ErrorState({ error, retry }: { error: unknown; retry?: () => voi
   const msg = error instanceof ApiError ? error.message : 'Algo ha fallado.';
   return (
     <div className="empty error-state" role="alert">
-      <div className="empty-icon"><Icon name="alert" size={26} /></div>
       <h3>No se pudo cargar</h3>
       <p>{msg}</p>
       {retry && <button className="btn" onClick={retry}>Reintentar</button>}

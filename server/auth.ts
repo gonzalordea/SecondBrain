@@ -89,8 +89,8 @@ export async function authPlugin(app: FastifyInstance, { db, config }: { db: Db;
   }
 
   const me = async (userId: string, csrfToken: string) => {
-    const [u] = await db.query('SELECT id, email, display_name, role, created_at FROM users WHERE id = $1', [userId]);
-    return { user: { id: u.id, email: u.email, displayName: u.display_name, role: u.role, createdAt: u.created_at }, csrfToken };
+    const [u] = await db.query('SELECT id, email, display_name, role, theme, created_at FROM users WHERE id = $1', [userId]);
+    return { user: { id: u.id, email: u.email, displayName: u.display_name, role: u.role, theme: u.theme, createdAt: u.created_at }, csrfToken };
   };
 
   const authLimit = { rateLimit: { max: config.AUTH_RATE_LIMIT_MAX, timeWindow: '1 minute' } };
@@ -146,6 +146,13 @@ export async function authPlugin(app: FastifyInstance, { db, config }: { db: Db;
     await db.query('DELETE FROM sessions WHERE user_id = $1', [user.id]);
     const csrf = await startSession(reply, user.id);
     return me(user.id, csrf);
+  });
+
+  app.patch('/api/auth/preferences', async (req) => {
+    const user = requireUser(req);
+    const { theme } = parse(z.object({ theme: z.enum(['system', 'light', 'dark']) }).strict(), req.body);
+    await db.query('UPDATE users SET theme = $1 WHERE id = $2', [theme, user.id]);
+    return { theme };
   });
 
   app.delete('/api/auth/account', { config: authLimit }, async (req, reply) => {

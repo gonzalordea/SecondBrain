@@ -1,7 +1,7 @@
 # Informe de seguridad
 
 Alcance: la API (`server/`), el frontend (`web/`) y su despliegue (`Dockerfile`, `docker-compose.yml`).
-Cada control lleva la prueba automatizada que lo demuestra (`tests/integration/security.test.ts` = **S**, `tests/integration/core.test.ts` = **C**, `tests/unit/logic.test.ts` = **U**, `tests/e2e/app.spec.ts` = **E**). Todas pasan en la última ejecución (66 unit/integración, también por el driver `pg`, + 6 E2E).
+Cada control lleva la prueba automatizada que lo demuestra (`tests/integration/security.test.ts` = **S**, `tests/integration/core.test.ts` = **C**, `tests/unit/logic.test.ts` = **U**, `tests/e2e/app.spec.ts` = **E**). Todas pasan en la última ejecución (67 unit/integración, también por el driver `pg`, + 6 E2E).
 
 ## Activos y actores
 

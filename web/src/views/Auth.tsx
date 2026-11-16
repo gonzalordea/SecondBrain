@@ -28,22 +28,20 @@ export function AuthView({ onAuth }: { onAuth: (u: User, csrf: string) => void }
 
   return (
     <div className="auth">
-      <section className="auth-art" aria-hidden="true">
-        <svg viewBox="0 0 400 400" className="constellation">
-          {[[80, 90, 150, 160], [150, 160, 260, 120], [150, 160, 210, 270], [260, 120, 320, 220], [210, 270, 320, 220], [210, 270, 110, 310]].map(([a, b, c, d], i) => (
-            <line key={i} x1={a} y1={b} x2={c} y2={d} />
-          ))}
-          {[[80, 90, 7], [150, 160, 12], [260, 120, 9], [210, 270, 14], [320, 220, 8], [110, 310, 6]].map(([x, y, r], i) => (
-            <circle key={i} cx={x} cy={y} r={r} style={{ animationDelay: `${i * 0.4}s` }} />
-          ))}
-        </svg>
-        <blockquote>
-          Todo lo que lees, piensas y decides, <em>conectado</em>.
-        </blockquote>
+      <section className="auth-art">
+        <span className="wordmark">Second<em>Brain</em></span>
+        <blockquote>Lo que lees, piensas y decides, <em>subrayado</em> y conectado.</blockquote>
+        <ul className="auth-features" aria-label="Qué incluye">
+          <li>Búsqueda por significado</li>
+          <li>Asistente que cita tus notas</li>
+          <li>Grafo de ideas y personas</li>
+        </ul>
       </section>
       <section className="auth-panel">
-        <h1 className="wordmark big">Second<em>Brain</em></h1>
-        <p className="muted">{mode === 'login' ? 'Bienvenido de nuevo.' : 'Crea tu espacio de conocimiento.'}</p>
+        <div className="auth-title">
+          <h1>{mode === 'login' ? 'Entra en tu espacio' : 'Crea tu espacio'}</h1>
+          <p className="muted small">{mode === 'login' ? 'Tus notas te esperan donde las dejaste.' : 'Tus notas solo las ves tú, salvo las que compartas.'}</p>
+        </div>
         <div className="segmented" role="tablist" aria-label="Acceso">
           <button role="tab" aria-selected={mode === 'login'} onClick={() => setMode('login')}>Entrar</button>
           <button role="tab" aria-selected={mode === 'register'} onClick={() => setMode('register')}>Crear cuenta</button>

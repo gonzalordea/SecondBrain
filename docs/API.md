@@ -25,10 +25,11 @@ Errores: `{ "error": { "code": string, "message": string, "issues"?: [{ "path", 
 | POST | `/auth/login` | `{ email, password }` | `{ user, csrfToken }` + cookie nueva |
 | POST | `/auth/logout` | — | `{ ok }` (borra la sesión en BD) |
 | GET | `/auth/me` | — | `{ user, csrfToken }` |
+| PATCH | `/auth/preferences` | `{ theme: 'system'|'light'|'dark' }` | `{ theme }`; se guarda en la cuenta |
 | POST | `/auth/password` | `{ currentPassword, newPassword }` | `{ user, csrfToken }`; revoca todas las demás sesiones |
 | DELETE | `/auth/account` | `{ password }` | `{ ok }`; borra la cuenta y todo su contenido |
 
-`user = { id, email, displayName, role: 'user'|'admin', createdAt }`
+`user = { id, email, displayName, role: 'user'|'admin', theme: 'system'|'light'|'dark', createdAt }`
 
 ## Notas
 

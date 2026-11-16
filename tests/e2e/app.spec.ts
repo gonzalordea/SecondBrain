@@ -9,6 +9,9 @@ async function register(page: Page, email: string) {
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Contraseña').fill(password);
   await page.locator('form').getByRole('button', { name: 'Crear cuenta' }).click();
+  // New accounts land on the home screen; the tests start from the notes list.
+  await expect(page.locator('.home')).toBeVisible();
+  await page.goto('/#/notes');
   await expect(page.getByRole('heading', { name: 'Todas las notas' })).toBeVisible();
 }
 
@@ -119,7 +122,7 @@ test('import a markdown file and open it as a document', async ({ page }) => {
 test('assistant explains it is not configured; logout ends the session', async ({ page }) => {
   await register(page, `ask-${Date.now()}@example.com`);
   await page.getByRole('link', { name: 'Preguntar' }).click();
-  await expect(page.getByText(/Asistente desactivado/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'El asistente no está configurado' })).toBeVisible();
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
   await expect(page.getByRole('tab', { name: 'Entrar' })).toBeVisible();
   await page.goto('/#/notes');

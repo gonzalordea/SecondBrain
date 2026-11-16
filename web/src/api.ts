@@ -76,7 +76,8 @@ export async function streamEvents(path: string, body: unknown, onEvent: (event:
 
 export type NoteType = 'note' | 'document' | 'task';
 export type TaskStatus = 'todo' | 'doing' | 'done';
-export interface User { id: string; email: string; displayName: string; role: 'user' | 'admin'; createdAt: string }
+export type Theme = 'system' | 'light' | 'dark';
+export interface User { id: string; email: string; displayName: string; role: 'user' | 'admin'; theme: Theme; createdAt: string }
 export interface NoteSummary {
   id: string; type: NoteType; title: string; excerpt: string; category: string | null; status: TaskStatus | null;
   dueDate: string | null; version: number; updatedAt: string; createdAt: string; tags: string[]; ownerName: string; embeddingStatus: string;

@@ -5,10 +5,10 @@
 | Componente | Cómo se verificó | Resultado |
 |---|---|---|
 | Typecheck de todo el código (servidor, web, tests) | `npm run typecheck` | Sin errores |
-| API completa sobre PGlite (Postgres 17 + pgvector en WASM) | `npm test` — 66 tests (unit + integración + seguridad) con el modelo de embeddings real | 66/66 |
-| La misma API sobre el **driver de producción** `node-postgres` | `npm run test:pg` — los mismos 66 tests hablando el protocolo de PostgreSQL por TCP (PGlite socket server), pool de 1 conexión | 66/66 |
+| API completa sobre PGlite (Postgres 17 + pgvector en WASM) | `npm test` — 67 tests (unit + integración + seguridad) con el modelo de embeddings real | 67/67 |
+| La misma API sobre el **driver de producción** `node-postgres` | `npm run test:pg` — los mismos 67 tests hablando el protocolo de PostgreSQL por TCP (PGlite socket server), pool de 1 conexión | 67/67 |
 | Frontend + servidor real en navegador | `npm run test:e2e` — Chromium, escritorio y móvil (Pixel 7) | 6/6 |
-| Revisión visual | Navegador integrado: login, editor, búsqueda, grafo, panorama, papelera, móvil 375 px, tema claro/oscuro, sin violaciones de CSP en consola | Correcto tras los arreglos |
+| Revisión visual (rediseño «Grafito y subrayador») | Navegador integrado: acceso, inicio, editor, búsqueda, asistente, grafo, panorama, ajustes y papelera en claro y oscuro; las nueve pantallas a 375 px sin desbordamiento horizontal; cambio de tema guardado en la cuenta | Correcto tras los arreglos |
 | Extracción de PDF y ficheros originales | Tests con un PDF real: texto extraído, descarga idéntica byte a byte (SHA-256), permisos; E2E descargando el original en Chromium | Correcto |
 | Búsqueda semántica | Consultas sin palabras en común con la nota correcta ("¿qué come mi mascota?" → nota del gato) | Correcto |
 

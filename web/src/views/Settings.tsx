@@ -1,25 +1,58 @@
-import { useRef, useState, type DragEvent, type FormEvent } from 'react';
-import { api, setCsrf } from '../api.ts';
-import { useSession } from '../session.ts';
+import { useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react';
+import { api, setCsrf, type Theme } from '../api.ts';
+import { THEME_LABEL, THEME_ORDER, useSession } from '../session.ts';
 import { fmtDate } from '../text.tsx';
 import { confirmAction, errMsg, ErrorState, Icon, Skeleton, Spinner, useAsync, useToast } from '../ui.tsx';
+
+/** Settings are a column of sections: what it is on the left, the controls on the right. */
+function Section({ id, title, description, className = '', children }: { id: string; title: string; description?: ReactNode; className?: string; children: ReactNode }) {
+  return (
+    <section className={`settings-section ${className}`} aria-labelledby={id}>
+      <header><h2 id={id}>{title}</h2>{description && <p>{description}</p>}</header>
+      <div>{children}</div>
+    </section>
+  );
+}
 
 export function SettingsView() {
   const { user } = useSession();
   return (
     <div className="page settings">
-      <header className="page-head"><h1>Ajustes</h1></header>
+      <header className="page-head"><div><span className="eyebrow">Cuenta</span><h1>Ajustes</h1></div></header>
       <div className="settings-grid">
+        <Appearance />
         <ImportExport />
-        <section className="card">
-          <h2>Cuenta</h2>
+        <Section id="s-account" title="Cuenta" description="Al cambiar la contraseña se cierran las demás sesiones abiertas.">
           <dl className="kv"><dt>Nombre</dt><dd>{user.displayName}</dd><dt>Email</dt><dd>{user.email}</dd><dt>Rol</dt><dd>{user.role === 'admin' ? 'Administrador' : 'Usuario'}</dd></dl>
           <PasswordForm />
-        </section>
+        </Section>
         {user.role === 'admin' && <Admin />}
         <DangerZone />
       </div>
     </div>
+  );
+}
+
+function Appearance() {
+  const { theme, setTheme } = useSession();
+  return (
+    <Section id="s-appearance" title="Apariencia" description="Se guarda en tu cuenta y se aplica en cualquier navegador donde entres.">
+      <div className="theme-options" role="radiogroup" aria-label="Tema">
+        {THEME_ORDER.map((t: Theme) => (
+          <button key={t} className="theme-option" role="radio" aria-checked={theme === t} onClick={() => setTheme(t)}>
+            <span className={`preview ${t}`} aria-hidden="true">
+              {t === 'system' ? (
+                <><span className="p-side light"><i /><i /><i /></span><span className="p-main light"><i /><i /></span>
+                  <span className="p-side dark"><i /><i /><i /></span><span className="p-main dark"><i /><i /></span></>
+              ) : (
+                <><span className="p-side"><i /><i /><i /><i /></span><span className="p-main"><i /><i /><i /></span></>
+              )}
+            </span>
+            <span>{THEME_LABEL[t]}{t === 'system' && <span className="muted"> · automático</span>}</span>
+          </button>
+        ))}
+      </div>
+    </Section>
   );
 }
 
@@ -45,16 +78,16 @@ function ImportExport() {
   }
 
   return (
-    <section className="card span-2">
-      <h2>Importar y exportar</h2>
+    <Section id="s-io" title="Importar y exportar"
+      description="PDF, Markdown y texto se convierten en documentos (y se guarda el original). Las copias .json de SecondBrain se pueden reimportar en otra cuenta.">
       <div className={`dropzone ${over ? 'over' : ''}`}
         onDragOver={(e: DragEvent) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
         onDrop={(e: DragEvent) => { e.preventDefault(); setOver(false); upload(e.dataTransfer.files); }}>
         {busy ? <><Spinner /> <span>Procesando…</span></> : (
           <>
-            <Icon name="upload" size={26} />
+            <Icon name="upload" size={20} />
             <p><strong>Arrastra ficheros aquí</strong> o <button className="link-btn" onClick={() => input.current?.click()}>elígelos</button></p>
-            <p className="tiny muted">PDF, Markdown o texto (se convierten en documentos) y copias .json de SecondBrain. Máx. 10 MB por fichero.</p>
+            <p className="tiny muted">.pdf · .md · .txt · .json — máx. 10 MB por fichero</p>
           </>
         )}
         <input ref={input} type="file" multiple hidden accept=".pdf,.md,.markdown,.txt,.json" onChange={(e) => e.target.files && upload(e.target.files)} />
@@ -66,11 +99,11 @@ function ImportExport() {
           {result.errors.map((e) => <p key={e.file} className="form-error small">{e.file}: {e.message}</p>)}
         </div>
       )}
-      <div className="row gap-s wrap">
-        <a className="btn" href="/api/export" download><Icon name="download" size={16} /> Exportar todo (.json)</a>
-        <span className="tiny muted">Incluye notas, etiquetas y enlaces. Se puede reimportar en otra cuenta.</span>
+      <div className="row gap wrap">
+        <a className="btn" href="/api/export" download><Icon name="download" size={15} /> Exportar todo (.json)</a>
+        <span className="tiny muted">Notas, etiquetas y enlaces.</span>
       </div>
-    </section>
+    </Section>
   );
 }
 
@@ -91,11 +124,11 @@ function PasswordForm() {
     finally { setBusy(false); }
   }
   return (
-    <form className="stack" onSubmit={submit}>
+    <form className="stack settings-form" onSubmit={submit}>
       <h3>Cambiar contraseña</h3>
       <label className="field"><span>Actual</span><input className="input" name="current" type="password" required autoComplete="current-password" /></label>
-      <label className="field"><span>Nueva</span><input className="input" name="next" type="password" required minLength={10} autoComplete="new-password" /></label>
-      <button className="btn" disabled={busy}>{busy ? <Spinner /> : 'Guardar'}</button>
+      <label className="field"><span>Nueva (mínimo 10 caracteres)</span><input className="input" name="next" type="password" required minLength={10} autoComplete="new-password" /></label>
+      <div><button className="btn" disabled={busy}>{busy ? <Spinner /> : 'Cambiar contraseña'}</button></div>
     </form>
   );
 }
@@ -109,9 +142,7 @@ function Admin() {
     catch (e) { toast({ message: errMsg(e), tone: 'error' }); }
   }
   return (
-    <section className="card span-2">
-      <h2><Icon name="shield" size={17} /> Usuarios</h2>
-      <p className="tiny muted">Los administradores gestionan cuentas; nunca ven el contenido de las notas.</p>
+    <Section id="s-admin" title="Usuarios" description="Los administradores gestionan cuentas; nunca ven el contenido de las notas.">
       {users.error ? <ErrorState error={users.error} retry={users.reload} /> : !users.data ? <Skeleton /> : (
         <div className="table-scroll">
           <table className="table">
@@ -120,8 +151,8 @@ function Admin() {
               {users.data.items.map((u) => (
                 <tr key={u.id}>
                   <td><strong>{u.displayName}</strong><br /><small className="muted">{u.email}</small></td>
-                  <td>{u.notes}</td>
-                  <td className="small">{fmtDate(u.createdAt)}</td>
+                  <td className="mono">{u.notes}</td>
+                  <td className="mono">{fmtDate(u.createdAt)}</td>
                   <td>
                     <select className="select sm" value={u.role} disabled={u.id === user.id} aria-label={`Rol de ${u.email}`} onChange={(e) => update(u.id, { role: e.target.value })}>
                       <option value="user">Usuario</option><option value="admin">Admin</option>
@@ -138,7 +169,7 @@ function Admin() {
           </table>
         </div>
       )}
-    </section>
+    </Section>
   );
 }
 
@@ -153,13 +184,11 @@ function DangerZone() {
     catch (err) { toast({ message: errMsg(err), tone: 'error' }); }
   }
   return (
-    <section className="card danger-zone">
-      <h2>Eliminar cuenta</h2>
-      <p className="small muted">Borra tu cuenta y todo su contenido. Exporta antes si quieres conservarlo.</p>
-      <form className="stack" onSubmit={submit}>
+    <Section id="s-danger" title="Eliminar cuenta" className="danger-zone" description="Borra tu cuenta y todo su contenido para siempre. Exporta antes si quieres conservarlo.">
+      <form className="stack settings-form" onSubmit={submit}>
         <label className="field"><span>Confirma con tu contraseña</span><input className="input" name="password" type="password" required autoComplete="current-password" /></label>
-        <button className="btn danger">Eliminar mi cuenta</button>
+        <div><button className="btn danger">Eliminar mi cuenta</button></div>
       </form>
-    </section>
+    </Section>
   );
 }

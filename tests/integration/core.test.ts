@@ -346,3 +346,17 @@ describe('original files', () => {
     expect((await ctx.db.query('SELECT 1 FROM note_files WHERE note_id = $1', [note.id])).length).toBe(0);
   });
 });
+
+describe('preferences', () => {
+  it('saves the theme on the account and rejects unknown values', async () => {
+    expect((await ana.get('/api/auth/me')).json().user.theme).toBe('system');
+    expect((await ana.patch('/api/auth/preferences', { theme: 'dark' })).json()).toEqual({ theme: 'dark' });
+    // A second browser logging in sees the same preference.
+    const other = new Client(ctx.app);
+    const login = await other.post('/api/auth/login', { email: 'ana@example.com', password: 'correct horse battery' });
+    expect(login.json().user.theme).toBe('dark');
+    expect((await ana.patch('/api/auth/preferences', { theme: 'neon' })).statusCode).toBe(400);
+    expect((await ana.patch('/api/auth/preferences', { theme: 'light', role: 'admin' })).statusCode).toBe(400);
+    expect((await new Client(ctx.app).patch('/api/auth/preferences', { theme: 'dark' })).statusCode).toBe(401);
+  });
+});

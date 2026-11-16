@@ -46,7 +46,7 @@ export function AskView({ conversationId }: { conversationId?: string }) {
       </aside>
       <section className="chat-pane">
         {convs.data && !convs.data.llm ? (
-          <Empty icon="sparkle" title="El asistente no está configurado">
+          <Empty title="El asistente no está configurado">
             Define <code>ANTHROPIC_API_KEY</code> en el servidor para activar las respuestas con IA. La búsqueda semántica, el grafo y los resúmenes extractivos funcionan sin ella.
           </Empty>
         ) : conversationId ? (
@@ -54,7 +54,7 @@ export function AskView({ conversationId }: { conversationId?: string }) {
             ...d, items: d.items.map((c) => (c.id === conversationId ? { ...c, title, updatedAt: new Date().toISOString() } : c)),
           })} />
         ) : (
-          <Empty icon="sparkle" title="Pregunta a tu segundo cerebro" action={<button className="btn primary" onClick={newConversation}><Icon name="plus" size={16} /> Nueva conversación</button>}>
+          <Empty title="Pregunta a tu segundo cerebro" action={<button className="btn primary" onClick={newConversation}><Icon name="plus" size={16} /> Nueva conversación</button>}>
             Responde solo con lo que hay en tus notas, cita de dónde lo saca y te dice cuándo no lo sabe.
           </Empty>
         )}

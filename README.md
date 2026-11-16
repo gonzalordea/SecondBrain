@@ -3,6 +3,7 @@
 Gestor de conocimiento personal: notas, documentos y tareas conectados por etiquetas, personas y enlaces; búsqueda semántica; un asistente que responde **solo** con tus notas y cita las fuentes; grafo de conocimiento; versiones, papelera, importación/exportación y panel de estadísticas.
 
 - Diseño y decisiones: [docs/DESIGN.md](docs/DESIGN.md)
+- Sistema visual (paleta, tipografía, componentes, temas): [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md)
 - API: [docs/API.md](docs/API.md)
 - Seguridad (amenazas y pruebas): [docs/SECURITY.md](docs/SECURITY.md)
 - Limitaciones y estado de verificación: [docs/LIMITATIONS.md](docs/LIMITATIONS.md)
@@ -59,13 +60,13 @@ La imagen descarga el modelo de embeddings durante el *build*, así que el conte
 npm test
 ```
 
-Unitarios + integración (66): API real con Fastify `inject`, PostgreSQL real en memoria (PGlite) y el modelo de embeddings real. Incluye la batería de seguridad (`tests/integration/security.test.ts`).
+Unitarios + integración (67): API real con Fastify `inject`, PostgreSQL real en memoria (PGlite) y el modelo de embeddings real. Incluye la batería de seguridad (`tests/integration/security.test.ts`).
 
 ```bash
 npm run test:pg
 ```
 
-Los mismos 66 tests, pero a través del driver de producción (`node-postgres`) hablando el protocolo de PostgreSQL por TCP.
+Los mismos 67 tests, pero a través del driver de producción (`node-postgres`) hablando el protocolo de PostgreSQL por TCP.
 
 ```bash
 npx playwright install chromium

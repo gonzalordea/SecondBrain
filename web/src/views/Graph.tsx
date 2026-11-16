@@ -51,8 +51,9 @@ export function GraphView() {
 
   return (
     <div className="page graph-page">
-      <header className="page-head row between wrap">
+      <header className="page-head">
         <div>
+          <span className="eyebrow">Inteligencia</span>
           <h1>Grafo de conocimiento</h1>
           <p className="muted small">
             {data.data ? `${data.data.nodes.filter((n) => n.kind === 'note').length} notas · ${data.data.edges.length} relaciones` : ' '}
@@ -81,7 +82,7 @@ export function GraphView() {
       </header>
       {data.error ? <ErrorState error={data.error} retry={data.reload} />
         : !layout ? <Skeleton lines={8} />
-        : layout.nodes.length === 0 ? <Empty icon="graph" title="El grafo está vacío">Crea notas con <code>#etiquetas</code>, <code>@personas</code> o <code>[[enlaces]]</code> y aparecerán aquí conectadas.</Empty>
+        : layout.nodes.length === 0 ? <Empty title="El grafo está vacío">Crea notas con <code>#etiquetas</code>, <code>@personas</code> o <code>[[enlaces]]</code> y aparecerán aquí conectadas.</Empty>
         : asList ? <GraphList nodes={layout.nodes} neighbours={layout.neighbours} />
         : <Canvas layout={layout} />}
     </div>

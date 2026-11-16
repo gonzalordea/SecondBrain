@@ -19,20 +19,21 @@ export function InsightsView() {
   const s = stats.data;
   return (
     <div className="page insights">
-      <header className="page-head"><h1>Panorama</h1><p className="muted">Qué sabes, cómo crece y qué está desconectado.</p></header>
+      <header className="page-head">
+        <div><span className="eyebrow">Inteligencia</span><h1>Panorama</h1></div>
+        <p>Qué sabes, cómo crece y qué está desconectado.</p>
+      </header>
       {stats.error ? <ErrorState error={stats.error} retry={stats.reload} /> : !s ? <Skeleton lines={10} /> : s.totals.notes === 0 ? (
-        <Empty icon="chart" title="Sin datos todavía" action={<a className="btn primary" href="#/notes/new">Crear la primera nota</a>}>En cuanto escribas o importes notas verás aquí su evolución.</Empty>
+        <Empty title="Sin datos todavía" action={<a className="btn primary" href="#/notes/new">Crear la primera nota</a>}>En cuanto escribas o importes notas verás aquí su evolución.</Empty>
       ) : (
+        <>
+        <section className="ledger" aria-label="Totales">
+          <Hero value={s.totals.notes} label="elementos" detail={`${s.totals.note} notas · ${s.totals.document} doc. · ${s.totals.task} tareas`} />
+          <Hero value={s.totals.words} label="palabras" detail={`${fmtNum(s.totals.chunks)} fragmentos indexados`} />
+          <Hero value={s.totals.links} label="enlaces" detail={`${s.orphans} ${s.orphans === 1 ? 'nota aislada' : 'notas aisladas'}`} />
+          <Hero value={s.totals.versions} label="versiones" detail={`${s.totals.trash} en la papelera`} />
+        </section>
         <div className="bento">
-          <section className="tile hero span-2">
-            <h2 className="sr-only">Totales</h2>
-            <div className="hero-numbers">
-              <Hero value={s.totals.notes} label="elementos" detail={`${s.totals.note} notas · ${s.totals.document} documentos · ${s.totals.task} tareas`} />
-              <Hero value={s.totals.words} label="palabras" detail={`${fmtNum(s.totals.chunks)} fragmentos indexados`} />
-              <Hero value={s.totals.links} label="enlaces" detail={`${s.orphans} ${s.orphans === 1 ? 'nota aislada' : 'notas aisladas'}`} />
-              <Hero value={s.totals.versions} label="versiones" detail={`${s.totals.trash} en la papelera`} />
-            </div>
-          </section>
 
           <section className="tile span-2">
             <h2>Notas creadas por semana</h2>
@@ -62,11 +63,11 @@ export function InsightsView() {
           <section className="tile">
             <h2>Más conectadas</h2>
             {s.mostConnected.length === 0 ? <p className="muted small">Enlaza notas con <code>[[Título]]</code>.</p> : (
-              <ol className="ranked">{s.mostConnected.map((n) => <li key={n.id}><a href={`#/notes/${n.id}`}>{n.title}</a><span className="muted">{n.degree}</span></li>)}</ol>
+              <ol className="ranked">{s.mostConnected.map((n) => <li key={n.id}><span><a href={`#/notes/${n.id}`}>{n.title}</a><span className="count">{n.degree}</span></span></li>)}</ol>
             )}
           </section>
 
-          <section className="tile span-2"><Connections /></section>
+          <section className="tile span-12"><Connections /></section>
 
           <section className="tile">
             <h2>Índice semántico</h2>
@@ -74,6 +75,7 @@ export function InsightsView() {
             <p className="muted small">{s.indexing.ready} indexadas{s.indexing.pending ? ` · ${s.indexing.pending} en cola` : ''}{s.indexing.failed ? ` · ${s.indexing.failed} con error` : ''}</p>
           </section>
         </div>
+        </>
       )}
     </div>
   );

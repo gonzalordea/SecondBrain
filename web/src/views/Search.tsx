@@ -50,7 +50,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
           <ul id="palette-results" role="listbox" className="palette-results">
             {items.map((h, i) => (
               <li key={h.id} id={`hit-${h.id}`} role="option" aria-selected={i === sel}
-                onMouseEnter={() => setSel(i)} onClick={() => go(`#/notes/${h.id}`)}>
+                onMouseMove={() => sel !== i && setSel(i)} onClick={() => go(`#/notes/${h.id}`)}>
                 <span className={`type-dot t-${h.type}`}><Icon name={h.type} size={14} /></span>
                 <span className="grow">
                   <strong>{h.title}</strong>
@@ -61,7 +61,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             ))}
             {dq && !res.loading && !items.length && <li className="palette-empty">Nada parecido a «{dq}».</li>}
             {dq && (
-              <li role="option" aria-selected={sel === items.length} className="palette-more" onMouseEnter={() => setSel(items.length)}
+              <li role="option" aria-selected={sel === items.length} className="palette-more" onMouseMove={() => sel !== items.length && setSel(items.length)}
                 onClick={() => go(`#/search?q=${encodeURIComponent(dq)}`)}>
                 <Icon name="search" size={15} /> Búsqueda avanzada con filtros para «{dq}»
               </li>
@@ -99,7 +99,7 @@ export function SearchView({ query }: { query: URLSearchParams }) {
   return (
     <div className="page search-page">
       <header className="page-head">
-        <h1>Buscar</h1>
+        <div><span className="eyebrow">Por significado y por palabras</span><h1>Buscar</h1></div>
         <div className="search-big">
           <Icon name="search" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="¿Qué quieres encontrar?" aria-label="Consulta" maxLength={500} autoFocus />
@@ -159,10 +159,10 @@ export function SearchView({ query }: { query: URLSearchParams }) {
           )}
         </aside>
         <section aria-live="polite" aria-busy={res.loading}>
-          {!q.trim() ? <Empty icon="search" title="Escribe algo para buscar">La búsqueda combina el significado (embeddings) con las palabras exactas. Ajusta el peso a la izquierda.</Empty>
+          {!q.trim() ? <Empty title="Escribe algo para buscar">La búsqueda combina el significado (embeddings) con las palabras exactas. Ajusta el peso a la izquierda.</Empty>
             : res.error ? <ErrorState error={res.error} retry={res.reload} />
             : !res.data ? <Skeleton lines={6} />
-            : res.data.items.length === 0 ? <Empty icon="search" title="Sin resultados">Prueba otro modo, baja los filtros o reformula la idea.</Empty>
+            : res.data.items.length === 0 ? <Empty title="Sin resultados">Prueba otro modo, baja los filtros o reformula la idea.</Empty>
             : (
               <>
                 <p className="muted small">{res.data.items.length} resultados · {res.data.tookMs} ms</p>

@@ -16,8 +16,8 @@ export function TrashView() {
 
   return (
     <div className="page">
-      <header className="page-head row between wrap">
-        <div><h1>Papelera</h1><p className="muted small">Se vacía sola a los 30 días.</p></div>
+      <header className="page-head">
+        <div><span className="eyebrow">Se vacía sola a los 30 días</span><h1>Papelera</h1></div>
         {!!trash.data?.items.length && (
           <button className="btn danger" onClick={() => confirmAction(`¿Eliminar definitivamente ${trash.data!.items.length} elementos? No se puede deshacer.`)
             && act(() => api('/trash', { method: 'DELETE' }), 'Papelera vaciada')}>
@@ -26,16 +26,16 @@ export function TrashView() {
         )}
       </header>
       {trash.error ? <ErrorState error={trash.error} retry={trash.reload} /> : !trash.data ? <Skeleton lines={5} /> : trash.data.items.length === 0 ? (
-        <Empty icon="trash" title="La papelera está vacía">Lo que borres aparecerá aquí y podrás recuperarlo.</Empty>
+        <Empty title="La papelera está vacía">Lo que borres aparecerá aquí y podrás recuperarlo.</Empty>
       ) : (
         <ul className="trash-list">
           {trash.data.items.map((i) => (
-            <li key={i.id} className="card row gap">
+            <li key={i.id}>
               <span className={`type-dot t-${i.type}`} aria-label={TYPE_LABEL[i.type]}><Icon name={i.type} size={14} /></span>
               <div className="grow">
                 <strong>{i.title}</strong>
                 <p className="muted small ellipsis">{i.excerpt || 'Vacía'}</p>
-                <small className="tiny muted">Borrada {fmtDate(i.deletedAt)}</small>
+                <small className="mono muted">borrada {fmtDate(i.deletedAt)}</small>
               </div>
               <button className="btn sm" onClick={() => act(() => api(`/trash/${i.id}/restore`, { method: 'POST' }), 'Restaurada', i.id)}>Restaurar</button>
               <button className="icon-btn danger" aria-label={`Eliminar definitivamente ${i.title}`}
